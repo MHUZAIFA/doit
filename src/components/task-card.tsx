@@ -4,18 +4,18 @@ import { Calendar, Clock, MapPin } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export type TaskView = {
   id: string
   title: string
+  description?: string | null
   category: string
   location: { name: string }
   durationMinutes: number
@@ -33,18 +33,43 @@ const priorityVariant: Record<string, "default" | "secondary" | "destructive"> =
 export function TaskCard({
   task,
   onComplete,
+  onReopen,
   className,
 }: {
   task: TaskView
   onComplete?: (id: string) => void
+  onReopen?: (id: string) => void
   className?: string
 }) {
+  const done = task.status === "completed"
+
   return (
     <Card size="sm" className={cn(className)}>
       <CardHeader className="pb-2">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <CardTitle className="text-base">{task.title}</CardTitle>
-          <Badge variant={priorityVariant[task.priority] ?? "secondary"}>{task.priority}</Badge>
+        <div className="flex items-start gap-3">
+          {onComplete || onReopen ? (
+            <div className="shrink-0 pt-0.5">
+              <Checkbox
+                checked={done}
+                disabled={(done && !onReopen) || (!done && !onComplete)}
+                onCheckedChange={(v) => {
+                  if (v === true && !done && onComplete) onComplete(task.id)
+                  if (v === false && done && onReopen) onReopen(task.id)
+                }}
+                aria-label={
+                  done ? "Reopen task (mark not complete)" : "Mark complete"
+                }
+              />
+            </div>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <CardTitle className="text-base">{task.title}</CardTitle>
+              <Badge variant={priorityVariant[task.priority] ?? "secondary"}>
+                {task.priority}
+              </Badge>
+            </div>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-2 text-sm text-muted-foreground">
@@ -68,13 +93,6 @@ export function TaskCard({
           </div>
         )}
       </CardContent>
-      {task.status !== "completed" && onComplete && (
-        <CardFooter className="border-t pt-3">
-          <Button size="sm" variant="secondary" onClick={() => onComplete(task.id)}>
-            Mark done
-          </Button>
-        </CardFooter>
-      )}
     </Card>
   )
 }

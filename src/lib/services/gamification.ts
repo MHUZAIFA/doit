@@ -28,3 +28,12 @@ export function applyTaskCompleted(g: UserGamification): UserGamification {
     tasksCompleted,
   }
 }
+
+/** Reverses one completion for stats when a task is reopened (streak / lastActiveDate unchanged). */
+export function applyTaskReopened(g: UserGamification): UserGamification {
+  return {
+    ...g,
+    tasksCompleted: Math.max(0, g.tasksCompleted - 1),
+    productivityScore: Math.max(0, g.productivityScore - 3),
+  }
+}

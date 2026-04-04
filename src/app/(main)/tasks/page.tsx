@@ -5,7 +5,8 @@ import Link from "next/link"
 import { ArrowLeft, ListTodo, Plus } from "lucide-react"
 import { toast } from "sonner"
 
-import { TaskCard, type TaskView } from "@/components/task-card"
+import { type TaskView } from "@/components/task-card"
+import { TaskList } from "@/components/task-list-row"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -33,6 +34,30 @@ export default function TasksPage() {
       return
     }
     toast.success("Task completed")
+    load()
+  }
+
+  async function reopenTask(id: string) {
+    const res = await fetch(`/api/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "pending" }),
+    })
+    if (!res.ok) {
+      toast.error("Could not reopen task")
+      return
+    }
+    toast.message("Task reopened")
+    load()
+  }
+
+  async function deleteTask(id: string) {
+    const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" })
+    if (!res.ok) {
+      toast.error("Could not delete task")
+      return
+    }
+    toast.success("Task deleted")
     load()
   }
 
@@ -92,11 +117,12 @@ export default function TasksPage() {
       ) : (
         <div className="space-y-8">
           {activeTasks.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {activeTasks.map((t) => (
-                <TaskCard key={t.id} task={t} onComplete={completeTask} />
-              ))}
-            </div>
+            <TaskList
+              tasks={activeTasks}
+              onComplete={completeTask}
+              onReopen={reopenTask}
+              onDelete={deleteTask}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">No open tasks — nice work.</p>
           )}
@@ -104,11 +130,12 @@ export default function TasksPage() {
           {completedTasks.length > 0 ? (
             <div className="space-y-3">
               <h2 className="text-sm font-medium text-muted-foreground">Completed</h2>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {completedTasks.map((t) => (
-                  <TaskCard key={t.id} task={t} onComplete={completeTask} />
-                ))}
-              </div>
+              <TaskList
+                tasks={completedTasks}
+                onComplete={completeTask}
+                onReopen={reopenTask}
+                onDelete={deleteTask}
+              />
             </div>
           ) : null}
         </div>

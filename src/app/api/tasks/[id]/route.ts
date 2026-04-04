@@ -6,7 +6,7 @@ import { getDb } from "@/lib/db"
 import { COLLECTIONS } from "@/lib/constants"
 import type { TaskDocument, TaskPriority, TaskStatus } from "@/lib/models"
 import { encryptSensitiveText } from "@/lib/services/privacy"
-import { applyTaskCompleted } from "@/lib/services/gamification"
+import { applyTaskCompleted, applyTaskReopened } from "@/lib/services/gamification"
 import { serializeTask } from "@/lib/serialize"
 import type { UserDocument } from "@/lib/models"
 
@@ -148,6 +148,14 @@ export async function PATCH(request: Request, { params }: Params) {
       read: false,
       createdAt: new Date(),
     })
+  }
+
+  if (p.status === "pending" && existing.status === "completed" && user) {
+    const g = applyTaskReopened(user.gamification)
+    await db.collection<UserDocument>(COLLECTIONS.users).updateOne(
+      { _id: auth.userId },
+      { $set: { gamification: g } }
+    )
   }
 
   await db.collection(COLLECTIONS.schedules).deleteMany({ userId: auth.userId })
