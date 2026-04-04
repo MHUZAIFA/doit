@@ -6,8 +6,23 @@ import { COLLECTIONS } from "@/lib/constants"
 import type { UserDocument } from "@/lib/models"
 import { parseTaskFromNaturalLanguage } from "@/lib/services/ai"
 
+const currentFormSchema = z
+  .object({
+    title: z.string().optional(),
+    description: z.string().optional(),
+    category: z.string().optional(),
+    locationName: z.string().optional(),
+    lat: z.string().optional(),
+    lng: z.string().optional(),
+    durationMinutes: z.number().optional(),
+    deadline: z.string().optional(),
+    priority: z.enum(["low", "medium", "high"]).optional(),
+  })
+  .optional()
+
 const bodySchema = z.object({
   text: z.string().min(1).max(8000),
+  currentForm: currentFormSchema,
 })
 
 export async function POST(request: Request) {
@@ -32,6 +47,9 @@ export async function POST(request: Request) {
   })
   const privacyMode = Boolean(user?.preferences.privacyMode)
 
-  const fields = await parseTaskFromNaturalLanguage(parsed.data.text, { privacyMode })
+  const fields = await parseTaskFromNaturalLanguage(parsed.data.text, {
+    privacyMode,
+    currentForm: parsed.data.currentForm ?? null,
+  })
   return NextResponse.json({ fields })
 }

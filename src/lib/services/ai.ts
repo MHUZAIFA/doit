@@ -1,4 +1,8 @@
+import { textImpliesClearForm } from "@/lib/task-parse-utils"
+
 export type ParsedTaskFields = {
+  /** When true, discard all form fields and start fresh. */
+  clearForm?: boolean
   title: string
   description?: string
   category: string
@@ -9,9 +13,40 @@ export type ParsedTaskFields = {
   constraints?: Record<string, unknown>
 }
 
-const SYSTEM_PARSE = `You are a scheduling assistant. Extract structured task data from natural language.
+/** Default Grok id for chat completions. `grok-2-*` names are no longer valid — see https://docs.x.ai/docs/models */
+const DEFAULT_XAI_MODEL = "grok-4-1-fast-non-reasoning"
+
+/** Groq OpenAI-compatible API — https://console.groq.com/docs/models */
+const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+
+const GROQ_BASE = "https://api.groq.com/openai/v1"
+
+/** xAI keys from console.x.ai usually start with `xai-`. `gsk_` keys are Groq — use Groq endpoint, not api.x.ai. */
+function resolveXaiKey(): string | undefined {
+  const k = process.env.XAI_API_KEY?.trim()
+  if (!k || k.startsWith("gsk_")) return undefined
+  return k
+}
+
+/** Prefer `GROQ_API_KEY`; also accept a `gsk_` key mistakenly placed in `XAI_API_KEY`. */
+function resolveGroqKey(): string | undefined {
+  const g = process.env.GROQ_API_KEY?.trim()
+  if (g) return g
+  const misplaced = process.env.XAI_API_KEY?.trim()
+  if (misplaced?.startsWith("gsk_")) return misplaced
+  return undefined
+}
+
+const SYSTEM_PARSE = `You are a scheduling assistant. You may receive a JSON snapshot of the CURRENT FORM plus a user message.
+
+Merge rules:
+- Preserve existing field values unless the user changes them, adds detail, or clearly contradicts.
+- Only update fields the user mentions or clearly implies.
+- If the user asks to clear, reset, empty, or wipe the form (e.g. "clear form", "start over", "reset everything"), set "clearForm": true. Do not merge in that case.
+
 Respond with ONLY valid JSON (no markdown) matching this shape:
 {
+  "clearForm"?: boolean,
   "title": string,
   "description"?: string,
   "category": string (work|personal|health|errand|other),
@@ -19,8 +54,11 @@ Respond with ONLY valid JSON (no markdown) matching this shape:
   "durationMinutes": number (default 60),
   "deadlineIso"?: string | null (ISO 8601 if mentioned),
   "priority": "low"|"medium"|"high",
-  "constraints"?: object (e.g. businessHoursOnly, needsGoodWeather)
-}`
+  "constraints"?: object
+}
+
+When "clearForm" is true, you may use empty strings and defaults; title may be "".
+When "clearForm" is false or omitted, "title" must be a non-empty string.`
 
 async function callChatCompletions(
   baseUrl: string,
@@ -41,8 +79,15 @@ async function callChatCompletions(
     }),
   })
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`AI API error ${res.status}: ${err}`)
+    const raw = await res.text()
+    let detail = raw
+    try {
+      const j = JSON.parse(raw) as { error?: { message?: string; code?: string } }
+      if (j.error?.message) detail = j.error.message
+    } catch {
+      /* keep raw */
+    }
+    throw new Error(`AI API error ${res.status}: ${detail}`)
   }
   const data = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>
@@ -55,6 +100,19 @@ async function callChatCompletions(
 function parseJsonFromModel(text: string): ParsedTaskFields {
   const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "")
   const parsed = JSON.parse(cleaned) as ParsedTaskFields
+  if (parsed.clearForm === true) {
+    return {
+      clearForm: true,
+      title: "",
+      description: undefined,
+      category: "other",
+      locationName: undefined,
+      durationMinutes: 60,
+      deadlineIso: null,
+      priority: "medium",
+      constraints: parsed.constraints,
+    }
+  }
   if (!parsed.title || typeof parsed.title !== "string") {
     throw new Error("Invalid parse: missing title")
   }
@@ -70,9 +128,17 @@ function parseJsonFromModel(text: string): ParsedTaskFields {
   }
 }
 
+function buildParseUserContent(
+  text: string,
+  currentForm?: Record<string, unknown> | null
+): string {
+  if (!currentForm || Object.keys(currentForm).length === 0) return text
+  return `Current form (merge with the user's message; only change what they mention or imply):\n${JSON.stringify(currentForm, null, 2)}\n\nUser message:\n${text}`
+}
+
 export async function parseTaskFromNaturalLanguage(
   text: string,
-  opts?: { privacyMode?: boolean }
+  opts?: { privacyMode?: boolean; currentForm?: Record<string, unknown> | null }
 ): Promise<ParsedTaskFields> {
   if (opts?.privacyMode) {
     return {
@@ -86,17 +152,33 @@ export async function parseTaskFromNaturalLanguage(
     }
   }
 
-  const grokKey = process.env.XAI_API_KEY
+  const userContent = buildParseUserContent(text, opts?.currentForm ?? null)
+
+  const xaiKey = resolveXaiKey()
+  const groqKey = resolveGroqKey()
   const openaiKey = process.env.OPENAI_API_KEY
 
-  if (grokKey) {
+  if (xaiKey) {
     const raw = await callChatCompletions(
       "https://api.x.ai/v1",
-      grokKey,
-      process.env.XAI_MODEL ?? "grok-2-latest",
+      xaiKey,
+      process.env.XAI_MODEL ?? DEFAULT_XAI_MODEL,
       [
         { role: "system", content: SYSTEM_PARSE },
-        { role: "user", content: text },
+        { role: "user", content: userContent },
+      ]
+    )
+    return parseJsonFromModel(raw)
+  }
+
+  if (groqKey) {
+    const raw = await callChatCompletions(
+      GROQ_BASE,
+      groqKey,
+      process.env.GROQ_MODEL ?? DEFAULT_GROQ_MODEL,
+      [
+        { role: "system", content: SYSTEM_PARSE },
+        { role: "user", content: userContent },
       ]
     )
     return parseJsonFromModel(raw)
@@ -109,10 +191,23 @@ export async function parseTaskFromNaturalLanguage(
       process.env.OPENAI_MODEL ?? "gpt-4o-mini",
       [
         { role: "system", content: SYSTEM_PARSE },
-        { role: "user", content: text },
+        { role: "user", content: userContent },
       ]
     )
     return parseJsonFromModel(raw)
+  }
+
+  if (textImpliesClearForm(text)) {
+    return {
+      clearForm: true,
+      title: "",
+      description: undefined,
+      category: "other",
+      durationMinutes: 60,
+      deadlineIso: null,
+      priority: "medium",
+      constraints: { fallback: true },
+    }
   }
 
   const title = text.slice(0, 120).trim() || "New task"
@@ -122,30 +217,40 @@ export async function parseTaskFromNaturalLanguage(
     durationMinutes: 60,
     deadlineIso: null,
     priority: "medium",
-    constraints: { fallback: true, note: "Configure XAI_API_KEY or OPENAI_API_KEY for NLP" },
+    constraints: {
+      fallback: true,
+      note: "Configure XAI_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY for NLP",
+    },
   }
 }
 
 export async function summarizeSchedulingContext(prompt: string): Promise<string> {
-  const grokKey = process.env.XAI_API_KEY
+  const xaiKey = resolveXaiKey()
+  const groqKey = resolveGroqKey()
   const openaiKey = process.env.OPENAI_API_KEY
-  if (!grokKey && !openaiKey) {
+  if (!xaiKey && !groqKey && !openaiKey) {
     return "AI keys not configured. Showing rule-based schedule only."
   }
   try {
-    const raw = await callChatCompletions(
-      grokKey ? "https://api.x.ai/v1" : "https://api.openai.com/v1",
-      (grokKey ?? openaiKey) as string,
-      grokKey ? (process.env.XAI_MODEL ?? "grok-2-latest") : (process.env.OPENAI_MODEL ?? "gpt-4o-mini"),
-      [
-        {
-          role: "system",
-          content:
-            "You are the AI assistant inside the Done. app (the product name includes the period). Be concise; reply in under 120 words with actionable scheduling advice.",
-        },
-        { role: "user", content: prompt },
-      ]
-    )
+    const baseUrl = xaiKey
+      ? "https://api.x.ai/v1"
+      : groqKey
+        ? GROQ_BASE
+        : "https://api.openai.com/v1"
+    const key = (xaiKey ?? groqKey ?? openaiKey) as string
+    const model = xaiKey
+      ? (process.env.XAI_MODEL ?? DEFAULT_XAI_MODEL)
+      : groqKey
+        ? (process.env.GROQ_MODEL ?? DEFAULT_GROQ_MODEL)
+        : (process.env.OPENAI_MODEL ?? "gpt-4o-mini")
+    const raw = await callChatCompletions(baseUrl, key, model, [
+      {
+        role: "system",
+        content:
+          "You are the AI assistant inside the Done. app (the product name includes the period). Be concise; reply in under 120 words with actionable scheduling advice.",
+      },
+      { role: "user", content: prompt },
+    ])
     return raw
   } catch (e) {
     return e instanceof Error ? e.message : "AI unavailable"
