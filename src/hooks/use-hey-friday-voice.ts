@@ -163,8 +163,6 @@ export function useHeyFridayVoice(options: {
 
   const startRef = useRef<(() => Promise<void>) | null>(null)
   const loopResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** Next `start()` is an auto loop — skip noisy toasts. */
-  const restartFromLoopRef = useRef(false)
 
   const clearLoopResumeTimer = useCallback(() => {
     if (loopResumeTimerRef.current != null) {
@@ -179,7 +177,6 @@ export function useHeyFridayVoice(options: {
     clearLoopResumeTimer()
     loopResumeTimerRef.current = setTimeout(() => {
       loopResumeTimerRef.current = null
-      restartFromLoopRef.current = true
       void run()
     }, 0)
   }, [clearLoopResumeTimer])
@@ -202,11 +199,6 @@ export function useHeyFridayVoice(options: {
     recRef.current = null
     setListening(false)
     setStatus("off")
-    if (full) {
-      if (registerLoopStart) {
-        restartFromLoopRef.current = true
-      }
-    }
     onSessionEnd?.(full)
 
     if (!loopWakeAfterSession || wasUserStop) return
@@ -309,9 +301,6 @@ export function useHeyFridayVoice(options: {
       try {
         rec.start()
         setStatus("capturing")
-        toast.message(
-          `Say your task — pause ${Math.max(1, Math.round(captureSilenceMs / 1000))}s when done, or tap Stop.`
-        )
       } catch {
         toast.error("Could not start microphone")
         endSession()
@@ -334,7 +323,7 @@ export function useHeyFridayVoice(options: {
   )
 
   const startWakeRecognition = useCallback(
-    (SR: new () => SpeechRecognition, silent: boolean) => {
+    (SR: new () => SpeechRecognition) => {
       phaseRef.current = "seeking_wake"
       const rec = new SR()
       rec.continuous = true
@@ -408,9 +397,6 @@ export function useHeyFridayVoice(options: {
         rec.start()
         setListening(true)
         setStatus("waiting_wake")
-        if (!silent) {
-          toast.message('Listening for "Hey Friday"…')
-        }
       } catch {
         toast.error("Could not start microphone")
         sessionActiveRef.current = false
@@ -423,8 +409,6 @@ export function useHeyFridayVoice(options: {
   )
 
   const start = useCallback(async () => {
-    const silent = restartFromLoopRef.current
-    restartFromLoopRef.current = false
     const SR = getSpeechRecognitionCtor()
     if (!SR) {
       toast.message("Voice isn’t supported in this browser. Try Chrome or Edge.")
@@ -466,11 +450,7 @@ export function useHeyFridayVoice(options: {
     bufferRef.current = ""
     setSpeechDetected(false)
 
-    if (!silent) {
-      toast.message("Microphone on — say “Hey Friday” clearly.")
-    }
-
-    startWakeRecognition(SR, silent)
+    startWakeRecognition(SR)
   }, [startWakeRecognition])
 
   /**

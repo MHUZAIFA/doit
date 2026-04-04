@@ -203,7 +203,7 @@ export function TaskLocationPicker({
           onFocus={() => hits.length > 0 && setListOpen(true)}
           disabled={disabled}
           placeholder="Business, address, neighborhood…"
-          className={cn("pl-9", compactRow && "h-9")}
+          className={cn("pl-9", compactRow && "h-11")}
           autoComplete="off"
           aria-expanded={listOpen}
           aria-controls={listOpen ? listId : undefined}
@@ -254,7 +254,7 @@ export function TaskLocationPicker({
         onChange={(e) => onChange({ locationName: e.target.value, lat, lng })}
         disabled={disabled}
         placeholder="e.g. Client office, Gym, Home"
-        className={cn(compactRow && "h-9 bg-muted/30")}
+        className={cn(compactRow && "h-11 bg-muted/30")}
       />
       {!compactRow ? (
         <p className="text-[12px] text-muted-foreground">
@@ -304,9 +304,7 @@ export function TaskLocationPicker({
   const statusRow = (
     <div className="space-y-3">
       {statusHeader}
-      <div className="overflow-hidden rounded-xs" aria-label="Location on map">
-        {mapPreview}
-      </div>
+      <div aria-label="Location on map">{mapPreview}</div>
     </div>
   )
 
@@ -315,7 +313,7 @@ export function TaskLocationPicker({
       type="button"
       variant="secondary"
       size="sm"
-      className={cn("gap-2", compactRow && "h-9 whitespace-nowrap")}
+      className={cn("gap-2", compactRow && "h-11 whitespace-nowrap")}
       disabled={
         locating ||
         geolocationDisabled ||
@@ -357,10 +355,7 @@ export function TaskLocationPicker({
         </div>
         <div className="flex min-h-[min(200px,35vh)] flex-1 flex-col gap-3 md:min-h-0">
           {statusHeader}
-          <div
-            className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xs"
-            aria-label="Location on map"
-          >
+          <div className="flex min-h-0 flex-1 flex-col" aria-label="Location on map">
             {mapPreview}
           </div>
         </div>

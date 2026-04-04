@@ -2,18 +2,20 @@
 
 import { useEffect } from "react"
 import L from "leaflet"
-import {
-  MapContainer,
-  Marker,
-  Popup,
-  TileLayer,
-  useMap,
-} from "react-leaflet"
+import { MapContainer, Marker, Popup, useMap } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 
-import { MAP_PREVIEW_DEFAULT_CLASS } from "@/lib/task-location-map-classes"
+import { MapThemedTileLayer } from "@/components/map-themed-tile-layer"
+import {
+  MAP_CONTAINER_INNER_CLASS,
+  MAP_PREVIEW_DEFAULT_CLASS,
+} from "@/lib/task-location-map-classes"
 
-export { MAP_PREVIEW_DEFAULT_CLASS, MAP_PREVIEW_FILL_CLASS } from "@/lib/task-location-map-classes"
+export {
+  MAP_CONTAINER_INNER_CLASS,
+  MAP_PREVIEW_DEFAULT_CLASS,
+  MAP_PREVIEW_FILL_CLASS,
+} from "@/lib/task-location-map-classes"
 
 function MapResizeInvalidator() {
   const map = useMap()
@@ -88,27 +90,26 @@ export function TaskLocationMapPreview({
     : "montreal-default"
 
   return (
-    <MapContainer
-      key={mapKey}
-      center={center}
-      zoom={zoom}
-      className={className ?? MAP_PREVIEW_DEFAULT_CLASS}
-      scrollWheelZoom={false}
-    >
-      <MapResizeInvalidator />
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      {taskCoords ? (
-        <Marker position={[taskCoords.lat, taskCoords.lng]} icon={pin}>
-          {label?.trim() ? <Popup>{label.trim()}</Popup> : null}
-        </Marker>
-      ) : (
-        <Marker position={[MONTREAL_DEFAULT.lat, MONTREAL_DEFAULT.lng]} icon={pin}>
-          <Popup>Montréal</Popup>
-        </Marker>
-      )}
-    </MapContainer>
+    <div className={className ?? MAP_PREVIEW_DEFAULT_CLASS}>
+      <MapContainer
+        key={mapKey}
+        center={center}
+        zoom={zoom}
+        className={MAP_CONTAINER_INNER_CLASS}
+        scrollWheelZoom={false}
+      >
+        <MapResizeInvalidator />
+        <MapThemedTileLayer />
+        {taskCoords ? (
+          <Marker position={[taskCoords.lat, taskCoords.lng]} icon={pin}>
+            {label?.trim() ? <Popup>{label.trim()}</Popup> : null}
+          </Marker>
+        ) : (
+          <Marker position={[MONTREAL_DEFAULT.lat, MONTREAL_DEFAULT.lng]} icon={pin}>
+            <Popup>Montréal</Popup>
+          </Marker>
+        )}
+      </MapContainer>
+    </div>
   )
 }

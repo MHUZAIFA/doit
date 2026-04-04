@@ -500,7 +500,7 @@ export default function NewTaskClientPage() {
                   required
                   disabled={saving}
                   placeholder="Task title"
-                  className="h-9"
+                  className="h-11"
                 />
               </div>
               <div className="space-y-1">
@@ -531,6 +531,7 @@ export default function NewTaskClientPage() {
                   onValueChange={setCategory}
                   options={CATEGORIES}
                   placeholder="Category"
+                  triggerClassName="h-11"
                 />
               </div>
               <div className="space-y-1">
@@ -546,6 +547,7 @@ export default function NewTaskClientPage() {
                   }}
                   options={PRIORITIES}
                   placeholder="Priority"
+                  triggerClassName="h-11"
                 />
               </div>
               <div className="space-y-1">
@@ -563,7 +565,7 @@ export default function NewTaskClientPage() {
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(Number(e.target.value))}
                   disabled={saving}
-                  className="h-9"
+                  className="h-11"
                 />
               </div>
               <div className="space-y-1">
@@ -576,7 +578,7 @@ export default function NewTaskClientPage() {
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
                   disabled={saving}
-                  className="h-9 min-w-0"
+                  className="h-11 min-w-0"
                 />
               </div>
             </div>

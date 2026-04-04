@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo } from "react"
 import L from "leaflet"
-import {
-  MapContainer,
-  Marker,
-  Polyline,
-  Popup,
-  TileLayer,
-  useMap,
-} from "react-leaflet"
+import { useTheme } from "next-themes"
+import { MapContainer, Marker, Polyline, Popup, useMap } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
+
+import { MapThemedTileLayer } from "@/components/map-themed-tile-layer"
+import {
+  MAP_CONTAINER_INNER_CLASS,
+  OSM_ROUTING_MAP_FRAME_CLASS,
+} from "@/lib/task-location-map-classes"
 
 export type OsmMapPlace = {
   id: string
@@ -85,6 +85,9 @@ export default function OsmRoutingMap({
   start,
   className,
 }: Props) {
+  const { resolvedTheme } = useTheme()
+  const routeColor = resolvedTheme === "dark" ? "#60a5fa" : "#2563eb"
+
   const center = useMemo((): [number, number] => {
     if (start) return [start.lat, start.lng]
     const p = places[0]
@@ -93,16 +96,14 @@ export default function OsmRoutingMap({
   }, [places, start])
 
   return (
-    <MapContainer
-      center={center}
-      zoom={12}
-      className={className ?? "z-0 h-[min(420px,55vh)] w-full rounded-xl border ring-1 ring-foreground/10"}
-      scrollWheelZoom
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+    <div className={className ?? OSM_ROUTING_MAP_FRAME_CLASS}>
+      <MapContainer
+        center={center}
+        zoom={12}
+        className={MAP_CONTAINER_INNER_CLASS}
+        scrollWheelZoom
+      >
+        <MapThemedTileLayer />
       <FitBounds places={places} routeLine={routeLine} start={start} />
       {start ? (
         <Marker position={[start.lat, start.lng]} icon={startIcon}>
@@ -135,9 +136,10 @@ export default function OsmRoutingMap({
       {routeLine && routeLine.length > 1 ? (
         <Polyline
           positions={routeLine}
-          pathOptions={{ color: "#2563eb", weight: 5, opacity: 0.85 }}
+          pathOptions={{ color: routeColor, weight: 5, opacity: 0.85 }}
         />
       ) : null}
-    </MapContainer>
+      </MapContainer>
+    </div>
   )
 }

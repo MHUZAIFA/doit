@@ -79,3 +79,9 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Leaflet ships gray #ddd behind tiles; it hides subtle borders and clashes with dark mode. */
+.leaflet-container {
+  background: var(--background) !important;
+  outline: none;
+}
