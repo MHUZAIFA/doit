@@ -182,7 +182,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-10">
-      <section className="space-y-5">
+      <section className="mb-0 mt-5">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
