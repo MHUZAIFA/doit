@@ -1,13 +1,14 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useCallback, useEffect, useId, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react"
 import { Crosshair, Loader2, MapPin, Search, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MAP_PREVIEW_FILL_CLASS } from "@/lib/task-location-map-classes"
 import { cn } from "@/lib/utils"
 
 const TaskLocationMapPreviewLazy = dynamic(
@@ -17,7 +18,7 @@ const TaskLocationMapPreviewLazy = dynamic(
     ssr: false,
     loading: () => (
       <div
-        className="h-[min(220px,40vh)] w-full animate-pulse rounded-lg bg-muted/80"
+        className="h-full min-h-[200px] w-full animate-pulse rounded-xs bg-muted/80"
         aria-hidden
       />
     ),
@@ -43,6 +44,11 @@ type TaskLocationPickerProps = {
   geolocationDisabled?: boolean
   /** GPS, search, and place label in one row on large screens. */
   compactRow?: boolean
+  /**
+   * When using `compactRow`, optional block shown on the left; **Use my location** is aligned to the right of this row.
+   */
+  compactTitleRow?: ReactNode
+  className?: string
 }
 
 export function TaskLocationPicker({
@@ -53,6 +59,8 @@ export function TaskLocationPicker({
   disabled,
   geolocationDisabled = false,
   compactRow = false,
+  compactTitleRow,
+  className,
 }: TaskLocationPickerProps) {
   const listId = useId()
   const searchRef = useRef<HTMLDivElement>(null)
@@ -165,7 +173,7 @@ export function TaskLocationPicker({
   const hasCoords = Boolean(lat.trim() && lng.trim())
   const latParsed = parseFloat(lat.trim())
   const lngParsed = parseFloat(lng.trim())
-  const showMapPreview =
+  const hasMapCoords =
     hasCoords &&
     Number.isFinite(latParsed) &&
     Number.isFinite(lngParsed) &&
@@ -210,7 +218,7 @@ export function TaskLocationPicker({
       {listOpen && hits.length > 0 ? (
         <ul
           id={listId}
-          className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-[var(--radius-xs)] border-2 border-border bg-popover py-1 text-sm shadow-md dark:border-white/10"
+          className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-xs border-2 border-border bg-popover py-1 text-sm shadow-md dark:border-white/10"
         >
           {hits.map((h, i) => (
             <li key={`${h.lat}-${h.lon}-${i}`}>
@@ -256,40 +264,51 @@ export function TaskLocationPicker({
     </div>
   )
 
-  const statusRow =
+  const statusHeader =
     locationName.trim() || hasCoords ? (
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xs border-2 border-dashed border-border px-3 py-2 dark:border-white/15">
-          <div className="min-w-0 text-[12px] text-muted-foreground">
-            {hasCoords ? (
-              <span>Map position saved — coordinates are stored for routing only.</span>
-            ) : (
-              <span>No map position yet — search or use my location.</span>
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 shrink-0 gap-1 text-muted-foreground"
-            disabled={disabled}
-            onClick={clearLocation}
-          >
-            <X className="size-3.5" aria-hidden />
-            Clear location
-          </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xs border-2 border-dashed border-border px-3 py-2 dark:border-white/15">
+        <div className="min-w-0 text-[12px] text-muted-foreground">
+          {hasCoords ? (
+            <span>Map position saved — coordinates are stored for routing only.</span>
+          ) : (
+            <span>No map position yet — search or use my location.</span>
+          )}
         </div>
-        {showMapPreview ? (
-          <div className="overflow-hidden rounded-lg" aria-label="Location on map">
-            <TaskLocationMapPreviewLazy
-              lat={latParsed}
-              lng={lngParsed}
-              label={locationName.trim() || undefined}
-            />
-          </div>
-        ) : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 shrink-0 gap-1 text-muted-foreground"
+          disabled={disabled}
+          onClick={clearLocation}
+        >
+          <X className="size-3.5" aria-hidden />
+          Clear location
+        </Button>
       </div>
-    ) : null
+    ) : (
+      <p className="text-[11px] text-muted-foreground">
+        Map preview — Montréal by default. Search or use GPS to set your place.
+      </p>
+    )
+
+  const mapPreview = (
+    <TaskLocationMapPreviewLazy
+      lat={hasMapCoords ? latParsed : undefined}
+      lng={hasMapCoords ? lngParsed : undefined}
+      label={locationName.trim() || undefined}
+      className={compactRow ? MAP_PREVIEW_FILL_CLASS : undefined}
+    />
+  )
+
+  const statusRow = (
+    <div className="space-y-3">
+      {statusHeader}
+      <div className="overflow-hidden rounded-xs" aria-label="Location on map">
+        {mapPreview}
+      </div>
+    </div>
+  )
 
   const gpsButton = (
     <Button
@@ -315,19 +334,42 @@ export function TaskLocationPicker({
 
   if (compactRow) {
     return (
-      <div className="space-y-3">
-        <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-end lg:gap-2">
+      <div className={cn("flex h-full min-h-0 flex-col gap-3", className)}>
+        {compactTitleRow != null ? (
+          <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 lg:gap-3">
+            <div className="min-w-0 flex-1 space-y-0.5">{compactTitleRow}</div>
+            <div className="flex shrink-0 justify-start lg:ml-auto lg:justify-end">
+              {gpsButton}
+            </div>
+          </div>
+        ) : null}
+        <div
+          className={cn(
+            "flex w-full shrink-0 flex-col gap-3 lg:flex-row lg:items-end lg:gap-2",
+            compactTitleRow == null && "flex-wrap"
+          )}
+        >
           {searchColumn}
           {placeColumn}
-          <div className="flex shrink-0 justify-start lg:ml-auto lg:justify-end">{gpsButton}</div>
+          {compactTitleRow == null ? (
+            <div className="flex shrink-0 justify-start lg:ml-auto lg:justify-end">{gpsButton}</div>
+          ) : null}
         </div>
-        {statusRow}
+        <div className="flex min-h-[min(200px,35vh)] flex-1 flex-col gap-3 md:min-h-0">
+          {statusHeader}
+          <div
+            className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xs"
+            aria-label="Location on map"
+          >
+            {mapPreview}
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", className)}>
       <div className="flex flex-wrap items-center gap-2">
         {gpsButton}
         <span className="text-[12px] text-muted-foreground">

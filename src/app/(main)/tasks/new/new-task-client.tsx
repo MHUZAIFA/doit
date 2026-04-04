@@ -258,7 +258,7 @@ export default function NewTaskClientPage() {
     coordsValid
 
   return (
-    <div className="w-full max-w-none space-y-6 pb-8">
+    <div className="mx-auto w-full max-w-6xl space-y-6 pb-8">
       <div className="space-y-2">
         <Link
           href="/dashboard"
@@ -275,27 +275,9 @@ export default function NewTaskClientPage() {
           </span>
         </div>
         <p className="text-[14px] text-muted-foreground">
-          Say &quot;Hey Friday&quot; to fill via the popup, or edit the form below by hand.
+          Say &quot;Hey Friday&quot; to fill using AI.
         </p>
       </div>
-
-      <TaskVoiceHeyFriday
-        autoStart
-        hideControls
-        hideStatusStrip
-        disabled={saving}
-        onWakeDetected={() => setVoiceDialogOpen(true)}
-        onEmptyCapture={() => setVoiceDialogOpen(false)}
-        onRegisterLoopStart={(start) => {
-          resumeHeyFridayRef.current = start
-        }}
-        onTranscript={setNlp}
-        onStopWithText={(text) => {
-          void parseNlpFromText(text).finally(() => {
-            void resumeHeyFridayRef.current?.()
-          })
-        }}
-      />
 
       <Dialog
         open={voiceDialogOpen}
@@ -328,124 +310,151 @@ export default function NewTaskClientPage() {
         </DialogContent>
       </Dialog>
 
-      <form onSubmit={save} className="w-full space-y-5">
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="title" className="text-[11px] text-muted-foreground">
-              Title <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
+      <form onSubmit={save} className="w-full space-y-8">
+        <div className="grid gap-8 md:grid-cols-2 md:items-stretch md:gap-10">
+          <div className="min-w-0 space-y-5">
+            <TaskVoiceHeyFriday
+              autoStart
+              hideControls
+              hideStatusStrip
               disabled={saving}
-              placeholder="Task title"
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="description" className="text-[11px] text-muted-foreground">
-              Notes
-            </Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={saving}
-              placeholder="Optional notes"
-              rows={3}
-              className="min-h-[72px] resize-y text-[13px]"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1">
-            <Label htmlFor="field-category" className="text-[11px] text-muted-foreground">
-              Category
-            </Label>
-            <FormDropdownSelect
-              id="field-category"
-              value={category}
-              disabled={saving}
-              onValueChange={setCategory}
-              options={CATEGORIES}
-              placeholder="Category"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="field-priority" className="text-[11px] text-muted-foreground">
-              Priority
-            </Label>
-            <FormDropdownSelect
-              id="field-priority"
-              value={priority}
-              disabled={saving}
-              onValueChange={(v) => {
-                if (v === "low" || v === "medium" || v === "high") setPriority(v)
+              onWakeDetected={() => setVoiceDialogOpen(true)}
+              onEmptyCapture={() => setVoiceDialogOpen(false)}
+              onRegisterLoopStart={(start) => {
+                resumeHeyFridayRef.current = start
               }}
-              options={PRIORITIES}
-              placeholder="Priority"
+              onTranscript={setNlp}
+              onStopWithText={(text) => {
+                void parseNlpFromText(text).finally(() => {
+                  void resumeHeyFridayRef.current?.()
+                })
+              }}
             />
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="title" className="text-[11px] text-muted-foreground">
+                  Title <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  disabled={saving}
+                  placeholder="Task title"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="description" className="text-[11px] text-muted-foreground">
+                  Notes
+                </Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  disabled={saving}
+                  placeholder="Optional notes"
+                  rows={8}
+                  className="min-h-[220px] resize-y text-[13px]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="field-category" className="text-[11px] text-muted-foreground">
+                  Category
+                </Label>
+                <FormDropdownSelect
+                  id="field-category"
+                  value={category}
+                  disabled={saving}
+                  onValueChange={setCategory}
+                  options={CATEGORIES}
+                  placeholder="Category"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="field-priority" className="text-[11px] text-muted-foreground">
+                  Priority
+                </Label>
+                <FormDropdownSelect
+                  id="field-priority"
+                  value={priority}
+                  disabled={saving}
+                  onValueChange={(v) => {
+                    if (v === "low" || v === "medium" || v === "high") setPriority(v)
+                  }}
+                  options={PRIORITIES}
+                  placeholder="Priority"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label
+                  htmlFor="dur"
+                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+                >
+                  <Timer className="size-3 opacity-70" aria-hidden />
+                  Minutes <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="dur"
+                  type="number"
+                  min={15}
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                  disabled={saving}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="deadline" className="text-[11px] text-muted-foreground">
+                  Deadline
+                </Label>
+                <Input
+                  id="deadline"
+                  type="datetime-local"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  disabled={saving}
+                  className="h-9 min-w-0"
+                />
+              </div>
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label
-              htmlFor="dur"
-              className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
-            >
-              <Timer className="size-3 opacity-70" aria-hidden />
-              Minutes <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="dur"
-              type="number"
-              min={15}
-              value={durationMinutes}
-              onChange={(e) => setDurationMinutes(Number(e.target.value))}
+
+          <div className="flex min-h-[min(280px,45vh)] flex-col md:h-full md:min-h-0 md:sticky md:top-6">
+            <TaskLocationPicker
+              className="min-h-0 flex-1"
+              compactRow
+              compactTitleRow={
+                <>
+                  <Label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <MapPin className="size-3 opacity-70" aria-hidden />
+                    Place
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Search, use GPS, or say a place when using voice
+                  </p>
+                </>
+              }
+              geolocationDisabled={saving}
+              locationName={locationName}
+              lat={lat}
+              lng={lng}
               disabled={saving}
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="deadline" className="text-[11px] text-muted-foreground">
-              Deadline
-            </Label>
-            <Input
-              id="deadline"
-              type="datetime-local"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-              disabled={saving}
-              className="h-9 min-w-0"
+              onChange={({ locationName: n, lat: la, lng: ln }) => {
+                setLocationName(n)
+                setLat(la)
+                setLng(ln)
+              }}
             />
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <MapPin className="size-3 opacity-70" aria-hidden />
-            Place
-          </Label>
-          <p className="text-[10px] text-muted-foreground">
-            Search, use GPS, or say a place when using voice
-          </p>
-          <TaskLocationPicker
-            compactRow
-            geolocationDisabled={saving}
-            locationName={locationName}
-            lat={lat}
-            lng={lng}
-            disabled={saving}
-            onChange={({ locationName: n, lat: la, lng: ln }) => {
-              setLocationName(n)
-              setLat(la)
-              setLng(ln)
-            }}
-          />
-        </div>
-
-        <div className="border-t border-border pt-4 dark:border-white/10">
+        <div className="border-t border-border pt-6 dark:border-white/10">
           <Button type="submit" className="h-10 w-full" disabled={saving || !canSave}>
             {saving ? "Creating…" : "Create task"}
           </Button>
