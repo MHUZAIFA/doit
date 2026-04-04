@@ -43,10 +43,10 @@ const pinIcons: Record<string, L.DivIcon> = {
 }
 
 const startIcon = L.divIcon({
-  className: "osm-leaflet-pin",
-  html: `<div style="width:16px;height:16px;background:#2563eb;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
+  className: "osm-leaflet-pin osm-start-marker-icon",
+  html: `<div class="osm-start-marker-wrap"><span class="osm-start-marker-dot location-dot-pulse" aria-hidden="true"></span></div>`,
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
 })
 
 function FitBounds({

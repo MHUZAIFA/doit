@@ -85,3 +85,101 @@ body {
   background: var(--background) !important;
   outline: none;
 }
+
+/*
+ * Current-location “live” pulse — expanding ring + glow. Light: emerald on light UI.
+ * Dark: brighter lime/emerald + stronger glow so it reads on black / dark map tiles.
+ */
+@keyframes location-dot-pulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgb(16 185 129 / 0.55),
+      0 1px 4px rgba(0, 0, 0, 0.35);
+  }
+  65% {
+    box-shadow:
+      0 0 0 14px rgb(16 185 129 / 0),
+      0 1px 4px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgb(16 185 129 / 0),
+      0 1px 4px rgba(0, 0, 0, 0.35);
+  }
+}
+
+@keyframes location-dot-pulse-dark {
+  0% {
+    box-shadow:
+      0 0 0 0 rgb(74 222 128 / 0.9),
+      0 0 14px 2px rgb(52 211 153 / 0.65),
+      0 0 24px 4px rgb(16 185 129 / 0.35),
+      inset 0 0 0 1px rgb(255 255 255 / 0.35);
+  }
+  55% {
+    box-shadow:
+      0 0 0 18px rgb(74 222 128 / 0),
+      0 0 10px 1px rgb(52 211 153 / 0.25),
+      0 0 20px 2px rgb(16 185 129 / 0.12),
+      inset 0 0 0 1px rgb(255 255 255 / 0.2);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgb(74 222 128 / 0),
+      0 0 10px 1px rgb(52 211 153 / 0.25),
+      0 0 20px 2px rgb(16 185 129 / 0.12),
+      inset 0 0 0 1px rgb(255 255 255 / 0.2);
+  }
+}
+
+.location-dot-pulse {
+  animation: location-dot-pulse 2.75s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.dark .location-dot-pulse {
+  animation: location-dot-pulse-dark 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Let ripple extend past the icon box (Leaflet’s marker wrapper can clip). */
+.leaflet-marker-icon.osm-start-marker-icon {
+  overflow: visible !important;
+}
+
+.osm-start-marker-wrap {
+  position: relative;
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.osm-start-marker-dot {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  background: #10b981;
+}
+
+.dark .osm-start-marker-dot {
+  border-color: #ecfdf5;
+  background: #34d399;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .location-dot-pulse {
+    animation: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35) !important;
+  }
+
+  .dark .location-dot-pulse {
+    box-shadow:
+      0 0 12px rgb(52 211 153 / 0.45),
+      inset 0 0 0 1px rgb(255 255 255 / 0.25) !important;
+  }
+}
