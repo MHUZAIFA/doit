@@ -17,13 +17,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { FormDropdownSelect } from "@/components/form-dropdown-select"
 import { TaskLocationPicker } from "@/components/task-location-picker"
 import { TaskVoiceHeyFriday } from "@/components/task-voice-hey-friday"
 import { textImpliesClearForm } from "@/lib/task-parse-utils"
@@ -263,8 +257,6 @@ export default function NewTaskClientPage() {
     durationMinutes >= 15 &&
     coordsValid
 
-  const formLocked = true
-
   return (
     <div className="w-full max-w-none space-y-6 pb-8">
       <div className="space-y-2">
@@ -279,11 +271,11 @@ export default function NewTaskClientPage() {
           <h1 className="text-2xl font-semibold tracking-tight md:text-[1.65rem]">New task</h1>
           <span className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
             <Mic className="size-2.5 opacity-80" aria-hidden />
-            Voice only
+            Voice or type
           </span>
         </div>
         <p className="text-[14px] text-muted-foreground">
-          Say &quot;Hey Friday&quot; — your words appear in a popup and the form fills when you pause.
+          Say &quot;Hey Friday&quot; to fill via the popup, or edit the form below by hand.
         </p>
       </div>
 
@@ -345,11 +337,11 @@ export default function NewTaskClientPage() {
             <Input
               id="title"
               value={title}
-              readOnly={formLocked}
-              tabIndex={-1}
+              onChange={(e) => setTitle(e.target.value)}
               required
-              placeholder="Filled by voice"
-              className="h-9 bg-muted/30"
+              disabled={saving}
+              placeholder="Task title"
+              className="h-9"
             />
           </div>
           <div className="space-y-1">
@@ -359,57 +351,43 @@ export default function NewTaskClientPage() {
             <Textarea
               id="description"
               value={description}
-              readOnly={formLocked}
-              tabIndex={-1}
-              placeholder="Optional — from voice"
+              onChange={(e) => setDescription(e.target.value)}
+              disabled={saving}
+              placeholder="Optional notes"
               rows={3}
-              className="min-h-[72px] resize-none bg-muted/30 text-[13px]"
+              className="min-h-[72px] resize-y text-[13px]"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Category</Label>
-            <Select
+            <Label htmlFor="field-category" className="text-[11px] text-muted-foreground">
+              Category
+            </Label>
+            <FormDropdownSelect
+              id="field-category"
               value={category}
-              disabled={formLocked}
-              onValueChange={(v) => {
-                if (v) setCategory(v)
-              }}
-            >
-              <SelectTrigger className="h-9 w-full min-w-0 bg-muted/30">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map(({ value, label }) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              disabled={saving}
+              onValueChange={setCategory}
+              options={CATEGORIES}
+              placeholder="Category"
+            />
           </div>
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Priority</Label>
-            <Select
+            <Label htmlFor="field-priority" className="text-[11px] text-muted-foreground">
+              Priority
+            </Label>
+            <FormDropdownSelect
+              id="field-priority"
               value={priority}
-              disabled={formLocked}
+              disabled={saving}
               onValueChange={(v) => {
                 if (v === "low" || v === "medium" || v === "high") setPriority(v)
               }}
-            >
-              <SelectTrigger className="h-9 w-full min-w-0 bg-muted/30">
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                {PRIORITIES.map(({ value, label }) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={PRIORITIES}
+              placeholder="Priority"
+            />
           </div>
           <div className="space-y-1">
             <Label
@@ -424,9 +402,9 @@ export default function NewTaskClientPage() {
               type="number"
               min={15}
               value={durationMinutes}
-              readOnly={formLocked}
-              tabIndex={-1}
-              className="h-9 bg-muted/30"
+              onChange={(e) => setDurationMinutes(Number(e.target.value))}
+              disabled={saving}
+              className="h-9"
             />
           </div>
           <div className="space-y-1">
@@ -437,9 +415,9 @@ export default function NewTaskClientPage() {
               id="deadline"
               type="datetime-local"
               value={deadline}
-              readOnly={formLocked}
-              tabIndex={-1}
-              className="h-9 min-w-0 bg-muted/30"
+              onChange={(e) => setDeadline(e.target.value)}
+              disabled={saving}
+              className="h-9 min-w-0"
             />
           </div>
         </div>
@@ -449,14 +427,16 @@ export default function NewTaskClientPage() {
             <MapPin className="size-3 opacity-70" aria-hidden />
             Place
           </Label>
-          <p className="text-[10px] text-muted-foreground">Set by voice when you mention a location</p>
+          <p className="text-[10px] text-muted-foreground">
+            Search, use GPS, or say a place when using voice
+          </p>
           <TaskLocationPicker
             compactRow
             geolocationDisabled={saving}
             locationName={locationName}
             lat={lat}
             lng={lng}
-            disabled={formLocked || saving}
+            disabled={saving}
             onChange={({ locationName: n, lat: la, lng: ln }) => {
               setLocationName(n)
               setLat(la)
