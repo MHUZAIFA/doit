@@ -187,6 +187,7 @@ export function RegisterForm() {
               required
               minLength={8}
               aria-describedby="password-hint"
+              placeholder="At least 8 characters"
             />
             <div id="password-hint" className="space-y-3">
               <PasswordStrengthMeter password={password} />
@@ -211,6 +212,7 @@ export function RegisterForm() {
               required
               aria-invalid={Boolean(confirmError)}
               aria-describedby={confirmError ? "reg-confirm-error" : undefined}
+              placeholder="Re-enter your password"
             />
             {confirmError ? (
               <p id="reg-confirm-error" className="text-[12px] text-destructive" role="alert">

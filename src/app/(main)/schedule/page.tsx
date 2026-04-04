@@ -102,7 +102,13 @@ export default function SchedulePage() {
         <CardContent className="flex flex-wrap items-end gap-4">
           <div className="space-y-2">
             <Label htmlFor="date">Date</Label>
-            <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+            <p className="text-[12px] text-muted-foreground">Which day to plan (native date picker).</p>
           </div>
           <Button type="button" onClick={generate} disabled={loading}>
             {loading ? "Working…" : "Generate top 3 options"}

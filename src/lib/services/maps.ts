@@ -1,5 +1,24 @@
 export type LatLng = { lat: number; lng: number }
 
+export type PlaceSuggestion = {
+  placeId: string
+  description: string
+}
+
+export type ResolvedPlace = {
+  lat: number
+  lng: number
+  displayName: string
+}
+
+export type NearbyPlace = {
+  placeId: string
+  name: string
+  address: string
+  lat: number
+  lng: number
+}
+
 export type DistanceMatrixResult = {
   origins: LatLng[]
   destinations: LatLng[]
@@ -25,6 +44,102 @@ export async function geocodeAddress(address: string): Promise<LatLng | null> {
   const loc = data.results?.[0]?.geometry?.location
   if (!loc || typeof loc.lat !== "number") return null
   return { lat: loc.lat, lng: loc.lng }
+}
+
+export async function reverseGeocodeFormatted(lat: number, lng: number): Promise<string | null> {
+  const key = apiKey()
+  if (!key) return null
+  const params = new URLSearchParams({
+    latlng: `${lat},${lng}`,
+    key,
+  })
+  const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`)
+  if (!res.ok) return null
+  const data = (await res.json()) as { results?: Array<{ formatted_address?: string }> }
+  return data.results?.[0]?.formatted_address ?? null
+}
+
+export async function autocompletePredictions(
+  input: string,
+  sessionToken?: string
+): Promise<PlaceSuggestion[]> {
+  const key = apiKey()
+  const q = input.trim()
+  if (!key || q.length < 2) return []
+  const params = new URLSearchParams({
+    input: q,
+    key,
+  })
+  if (sessionToken) params.set("sessiontoken", sessionToken)
+  const res = await fetch(
+    `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params.toString()}`
+  )
+  if (!res.ok) return []
+  const data = (await res.json()) as {
+    predictions?: Array<{ place_id?: string; description?: string }>
+  }
+  return (data.predictions ?? [])
+    .filter((p) => p.place_id && p.description)
+    .slice(0, 8)
+    .map((p) => ({ placeId: p.place_id!, description: p.description! }))
+}
+
+export async function resolvePlaceId(placeId: string): Promise<ResolvedPlace | null> {
+  const key = apiKey()
+  if (!key || !placeId) return null
+  const params = new URLSearchParams({
+    place_id: placeId,
+    key,
+  })
+  const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`)
+  if (!res.ok) return null
+  const data = (await res.json()) as {
+    results?: Array<{ formatted_address?: string; geometry?: { location?: LatLng } }>
+  }
+  const r = data.results?.[0]
+  const loc = r?.geometry?.location
+  if (!r?.formatted_address || !loc || typeof loc.lat !== "number") return null
+  return { lat: loc.lat, lng: loc.lng, displayName: r.formatted_address }
+}
+
+export async function nearbyPlacesWithCoords(
+  location: LatLng,
+  radiusMeters = 1200
+): Promise<NearbyPlace[]> {
+  const key = apiKey()
+  if (!key) return []
+  const params = new URLSearchParams({
+    location: `${location.lat},${location.lng}`,
+    radius: String(radiusMeters),
+    type: "establishment",
+    key,
+  })
+  const res = await fetch(
+    `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params.toString()}`
+  )
+  if (!res.ok) return []
+  const data = (await res.json()) as {
+    results?: Array<{
+      place_id?: string
+      name?: string
+      vicinity?: string
+      geometry?: { location?: LatLng }
+    }>
+  }
+  const out: NearbyPlace[] = []
+  for (const r of data.results ?? []) {
+    const loc = r.geometry?.location
+    if (!r.place_id || !r.name || !loc || typeof loc.lat !== "number") continue
+    out.push({
+      placeId: r.place_id,
+      name: r.name,
+      address: r.vicinity ?? "",
+      lat: loc.lat,
+      lng: loc.lng,
+    })
+    if (out.length >= 10) break
+  }
+  return out
 }
 
 export async function distanceMatrix(

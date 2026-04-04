@@ -28,9 +28,17 @@ export function ScheduleTimeline({
   const span = endMin - startMin
 
   return (
-    <div className="rounded-xl border bg-card p-4 ring-1 ring-foreground/10">
-      <div className="mb-3 text-sm font-medium">Today&apos;s timeline</div>
-      <div className="relative h-48 overflow-hidden rounded-lg bg-muted/40">
+    <div className="rounded-[var(--radius-xs)] border-2 border-border bg-card p-4 dark:border-white/10">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <h2 className="text-base font-medium tracking-tight">Today&apos;s plan</h2>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {dayStartHour}:00–{dayEndHour}:00
+        </span>
+      </div>
+      <p className="mb-3 text-[13px] text-muted-foreground">
+        Top schedule option for this day. Generate more on the schedule page.
+      </p>
+      <div className="relative h-52 overflow-hidden rounded-[var(--radius-xs)] bg-muted/30 dark:bg-muted/20">
         <div className="absolute inset-0 flex flex-col justify-between py-2 pl-12 pr-2">
           {Array.from({ length: Math.min(5, dayEndHour - dayStartHour + 1) }).map((_, i) => {
             const h = dayStartHour + Math.floor((i * (dayEndHour - dayStartHour)) / 4)
@@ -42,6 +50,11 @@ export function ScheduleTimeline({
             )
           })}
         </div>
+        {blocks.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-muted-foreground">
+            No timed blocks yet. Generate a schedule for today to see it here.
+          </div>
+        ) : null}
         {blocks.map((b) => {
           const sm = minutesSinceMidnight(b.start)
           const em = minutesSinceMidnight(b.end)
@@ -52,7 +65,7 @@ export function ScheduleTimeline({
             <div
               key={b.id}
               className={cn(
-                "absolute left-12 right-2 rounded-md px-2 py-1 text-xs font-medium shadow-sm ring-1 ring-foreground/10",
+                "absolute left-12 right-2 rounded-[var(--radius-xs)] border border-border bg-background px-2 py-1 text-xs font-medium dark:border-white/10",
                 b.tone === "accent" && "bg-primary text-primary-foreground",
                 b.tone === "muted" && "bg-muted text-muted-foreground",
                 (!b.tone || b.tone === "default") && "bg-background text-foreground"

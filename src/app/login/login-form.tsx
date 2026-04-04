@@ -143,6 +143,7 @@ export function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               required
+              placeholder="Enter your password"
             />
           </div>
 
