@@ -4,6 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import {
+  ASSISTANT_GREETING,
+  applyJarvisSpeechStyle,
+  ensureVoicesLoaded,
+  pickJarvisLikeVoice,
+} from "@/lib/assistant-tts-voice"
+import {
   ensureMicrophoneAccess,
   isVoiceContextSupported,
 } from "@/lib/microphone-access"
@@ -12,8 +18,6 @@ import {
  * Exported for tests / docs. Live detection uses {@link findWakeInTranscript} (more lenient).
  */
 export const HEY_FRIDAY_RE = /hey[\s,.'"-]{0,8}friday/i
-
-const GREETING = "How can I help you?"
 
 /** After this many ms without new speech during capture, we stop STT and submit text for parsing. */
 export const DEFAULT_CAPTURE_SILENCE_MS = 3000
@@ -100,12 +104,15 @@ function speakHowCanIHelp(onDone: () => void) {
     return
   }
   window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(GREETING)
-  u.lang = "en-US"
-  u.rate = 1
-  u.onend = () => onDone()
-  u.onerror = () => onDone()
-  window.speechSynthesis.speak(u)
+  void (async () => {
+    const voices = await ensureVoicesLoaded()
+    const voice = pickJarvisLikeVoice(voices)
+    const u = new SpeechSynthesisUtterance(ASSISTANT_GREETING)
+    applyJarvisSpeechStyle(u, voice)
+    u.onend = () => onDone()
+    u.onerror = () => onDone()
+    window.speechSynthesis.speak(u)
+  })()
 }
 
 export type HeyFridayStatus = "off" | "waiting_wake" | "greeting" | "capturing"
@@ -534,7 +541,7 @@ export function useHeyFridayVoice(options: {
     start,
     startDirectCapture,
     stop,
-    greetingText: GREETING,
+    greetingText: ASSISTANT_GREETING,
     speechDetected,
   }
 }
