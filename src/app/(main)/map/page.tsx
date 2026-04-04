@@ -1,4 +1,4 @@
-import { MapClient } from "./map-client"
+import { MapSection } from "./map-dynamic"
 
 export default function MapPage() {
   return (
@@ -6,11 +6,12 @@ export default function MapPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Map & routes</h1>
         <p className="text-muted-foreground">
-          OpenStreetMap tiles, Nominatim search, Overpass opening hours, and
-          OpenRouteService for stop order and paths — no Google Maps.
+          Tasks due by end of today or earlier (no future deadlines), plus open tasks with no deadline at
+          the end of the route. Stops are ordered by priority and deadline; OpenStreetMap, Nominatim,
+          Overpass hours, and OpenRouteService for the path — no Google Maps.
         </p>
       </div>
-      <MapClient />
+      <MapSection />
     </div>
   )
 }

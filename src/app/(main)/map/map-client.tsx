@@ -26,6 +26,8 @@ type PlanPlace = {
   displayName: string
   hoursTag: string | null
   hoursStatus: "open" | "closed" | "unknown"
+  priority?: "low" | "medium" | "high"
+  deadline?: string
 }
 
 type PlanResponse = {
@@ -38,11 +40,19 @@ type PlanResponse = {
   nominatimCalls?: number
 }
 
+const GEO_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 12_000,
+  maximumAge: 60_000,
+}
+
 export function MapClient() {
   const [plan, setPlan] = useState<PlanResponse | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
   const [start, setStart] = useState<{ lat: number; lng: number } | null>(null)
   const [locating, setLocating] = useState(false)
+  /** First routing request runs after we know location (or that it was denied / unavailable). */
+  const [geoReady, setGeoReady] = useState(false)
 
   const runPlan = useCallback(
     async (
@@ -76,11 +86,36 @@ export function MapClient() {
   )
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!navigator.geolocation) {
+      setGeoReady(true)
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setStart({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        })
+        setLocating(false)
+        setGeoReady(true)
+      },
+      () => {
+        setLocating(false)
+        setGeoReady(true)
+      },
+      GEO_OPTIONS
+    )
+  }, [])
+
+  useEffect(() => {
+    if (!geoReady) return
     void runPlan(
       start ? { startLat: start.lat, startLng: start.lng } : {},
       { notify: false }
     )
-  }, [runPlan, start])
+  }, [runPlan, start, geoReady])
 
   function useMyLocationAsStart() {
     if (!navigator.geolocation) {
@@ -101,7 +136,7 @@ export function MapClient() {
         setLocating(false)
         toast.error("Location access was denied or unavailable.")
       },
-      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 }
+      GEO_OPTIONS
     )
   }
 
@@ -125,7 +160,7 @@ export function MapClient() {
         <Button
           type="button"
           variant="secondary"
-          disabled={planLoading}
+          disabled={planLoading || !geoReady}
           onClick={() =>
             void runPlan(
               start ? { startLat: start.lat, startLng: start.lng } : {},
@@ -151,7 +186,7 @@ export function MapClient() {
           ) : (
             <Crosshair className="mr-2 size-4" aria-hidden />
           )}
-          Use my location as start
+          Update location
         </Button>
         {start ? (
           <Button type="button" variant="ghost" size="sm" onClick={clearStart}>
@@ -166,16 +201,24 @@ export function MapClient() {
         </p>
       ) : null}
 
+      {plan?.closedPlaces?.length ? (
+        <p className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-foreground dark:border-amber-400/30 dark:bg-amber-400/10">
+          <span className="font-medium">Some stops look closed now</span> — the blue path still
+          includes them. Check each stop below for opening hours before you go.
+        </p>
+      ) : null}
+
       <p className="text-sm text-muted-foreground">
-        Stops with missing or unreadable opening hours stay on the route as{" "}
-        <span className="text-foreground">unknown</span> (not removed). Only places
-        that are <span className="text-foreground">closed now</span> are skipped for
-        routing. Set{" "}
+        Missing or unreadable opening hours are treated as{" "}
+        <span className="text-foreground">open 24/7</span> for status.{" "}
+        <span className="text-foreground">Closed-now</span> places stay on the route; details
+        below show when time may not be available. Set{" "}
         <code className="rounded bg-muted px-1 py-0.5 text-[12px]">
           OPENROUTESERVICE_API_KEY
         </code>{" "}
         for the blue path; Nominatim is throttled (~1 search/s) when resolving names
-        without saved coordinates.
+        without saved coordinates. The route uses your current location as the start when
+        the browser allows it; use Clear start to plan across task stops only.
       </p>
 
       <OsmRoutingMap
@@ -187,7 +230,9 @@ export function MapClient() {
       {plan?.orderedTaskIds?.length ? (
         <Card size="sm">
           <CardHeader>
-            <CardTitle className="text-base">Visit order (greedy by travel time)</CardTitle>
+            <CardTitle className="text-base">
+              Visit order (dated tasks first; no-deadline tasks last)
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <ol className="list-decimal space-y-1 pl-4">
@@ -196,8 +241,19 @@ export function MapClient() {
                 return (
                   <li key={id}>
                     {t?.title ?? id}
-                    {t?.hoursStatus === "unknown" ? (
-                      <span className="ml-1 text-muted-foreground">(hours unknown)</span>
+                    {t?.priority ? (
+                      <span className="ml-1 capitalize text-muted-foreground">
+                        ({t.priority}
+                        {t?.deadline
+                          ? ` · ${new Date(t.deadline).toLocaleString(undefined, { dateStyle: undefined, timeStyle: "short" })}`
+                          : " · no deadline"}
+                        )
+                      </span>
+                    ) : null}
+                    {t?.hoursStatus === "closed" ? (
+                      <span className="ml-1 text-muted-foreground">(closed now — verify hours)</span>
+                    ) : t?.hoursStatus === "unknown" ? (
+                      <span className="ml-1 text-muted-foreground">(hours unclear)</span>
                     ) : null}
                   </li>
                 )
@@ -220,10 +276,12 @@ export function MapClient() {
                   <span className="text-green-600 dark:text-green-400">Open now</span>
                 )}
                 {t.hoursStatus === "closed" && (
-                  <span className="text-red-600 dark:text-red-400">Closed — excluded from route</span>
+                  <span className="text-red-600 dark:text-red-400">
+                    Closed now — likely not open at this time; still on the route for planning
+                  </span>
                 )}
                 {t.hoursStatus === "unknown" && (
-                  <span>Hours unknown — still routed if other stops qualify</span>
+                  <span>Hours unclear — assumed open 24/7 for status</span>
                 )}
               </p>
               {t.hoursTag ? (

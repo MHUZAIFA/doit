@@ -1,10 +1,11 @@
 "use client"
 
+import Link from "next/link"
 import { useCallback, useRef, useState } from "react"
-import { Calendar, Clock, MapPin, Trash2 } from "lucide-react"
+import { Calendar, Clock, MapPin, Pencil, Trash2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import type { TaskView } from "@/components/task-card"
 import { categoryBadgeClass, priorityBadgeVariant } from "@/lib/task-badges"
@@ -71,7 +72,7 @@ export function TaskListRow({
     const t = e.target as HTMLElement
     if (
       t.closest(
-        'button, a, [role="button"], [role="checkbox"], [data-slot="checkbox"]'
+        'a, button, [role="button"], [role="checkbox"], [data-slot="checkbox"]'
       )
     )
       return
@@ -220,6 +221,16 @@ export function TaskListRow({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            <Link
+              href={`/tasks/${task.id}/edit`}
+              aria-label="Edit task"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "h-8 px-2 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Pencil className="size-3.5" aria-hidden />
+            </Link>
             {onDelete ? (
               <Button
                 type="button"

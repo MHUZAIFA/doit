@@ -126,14 +126,14 @@ export default function OsmRoutingMap({
                 {p.hoursStatus === "open"
                   ? "Open now"
                   : p.hoursStatus === "closed"
-                    ? "Closed now"
-                    : "Hours unknown"}
+                    ? "Closed now — on route; check hours"
+                    : "Assumed open (24/7)"}
               </p>
             </div>
           </Popup>
         </Marker>
       ))}
-      {routeLine && routeLine.length > 1 ? (
+      {routeLine && routeLine.length >= 2 ? (
         <Polyline
           positions={routeLine}
           pathOptions={{ color: routeColor, weight: 5, opacity: 0.85 }}

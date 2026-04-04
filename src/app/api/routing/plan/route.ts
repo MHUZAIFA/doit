@@ -3,18 +3,18 @@ import { z } from "zod"
 import { requireSessionUser } from "@/lib/api/auth-utils"
 import { getDb } from "@/lib/db"
 import { COLLECTIONS } from "@/lib/constants"
-import type { TaskDocument } from "@/lib/models"
+import type { TaskDocument, TaskPriority, UserDocument } from "@/lib/models"
 import { openingHoursStatus, type HoursStatus } from "@/lib/opening-hours-status"
 import { nominatimSearch, sleep } from "@/lib/services/nominatim"
 import {
   fetchElementTags,
   fetchOpeningHoursNear,
 } from "@/lib/services/overpass"
+import { getUtcEndOfTodayInTimeZone } from "@/lib/today-bounds"
 import { ObjectId } from "mongodb"
 import {
-  greedyDurationOrder,
+  lngLatWaypointsToLeaflet,
   orsDirectionsLineString,
-  orsMatrix,
   type LngLat,
 } from "@/lib/services/openrouteservice"
 
@@ -32,6 +32,30 @@ type Enriched = {
   displayName: string
   hoursTag: string | null
   hoursStatus: HoursStatus
+  priority: TaskPriority
+  deadline: Date | null
+}
+
+function priorityWeight(p: TaskPriority): number {
+  return p === "high" ? 3 : p === "medium" ? 2 : 1
+}
+
+/**
+ * Dated tasks (deadline set) first — priority, then earlier deadline.
+ * Tasks with no deadline last — priority, then title.
+ */
+function compareVisit(a: Enriched, b: Enriched): number {
+  const aDated = a.deadline != null
+  const bDated = b.deadline != null
+  if (aDated && !bDated) return -1
+  if (!aDated && bDated) return 1
+  const pw = priorityWeight(b.priority) - priorityWeight(a.priority)
+  if (pw !== 0) return pw
+  if (aDated && bDated) {
+    const t = a.deadline!.getTime() - b.deadline!.getTime()
+    if (t !== 0) return t
+  }
+  return a.title.localeCompare(b.title)
 }
 
 async function resolveOpeningHoursTag(
@@ -65,7 +89,21 @@ export async function POST(request: Request) {
 
   const { taskIds, startLat, startLng } = parsed.data
   const db = await getDb()
-  const filter: Record<string, unknown> = { userId: auth.userId, status: { $ne: "cancelled" as const } }
+
+  const user = await db.collection<UserDocument>(COLLECTIONS.users).findOne({
+    _id: auth.userId,
+  })
+  const tz = user?.preferences?.timezone ?? "UTC"
+  const endOfTodayUtc = getUtcEndOfTodayInTimeZone(tz)
+
+  const filter: Record<string, unknown> = {
+    userId: auth.userId,
+    status: { $nin: ["cancelled", "completed"] as const },
+    $or: [
+      { deadline: { $lte: endOfTodayUtc } },
+      { deadline: null },
+    ],
+  }
   if (taskIds?.length) {
     const ids = taskIds.map((id) => new ObjectId(id))
     filter._id = { $in: ids }
@@ -123,11 +161,15 @@ export async function POST(request: Request) {
       displayName,
       hoursTag,
       hoursStatus,
+      priority: doc.priority,
+      deadline: doc.deadline ?? null,
     })
   }
 
-  const routable = enriched.filter((p) => p.hoursStatus !== "closed")
+  enriched.sort(compareVisit)
+
   const closed = enriched.filter((p) => p.hoursStatus === "closed")
+  const forRouting = enriched
 
   let routeLine: [number, number][] | null = null
   let orderedTaskIds: string[] = []
@@ -135,10 +177,9 @@ export async function POST(request: Request) {
 
   const hasOrs = Boolean(process.env.OPENROUTESERVICE_API_KEY?.trim())
 
-  if (!hasOrs) {
-    routingNote = "Set OPENROUTESERVICE_API_KEY for turn-by-turn geometry on the map."
-  } else if (routable.length === 0) {
-    routingNote = "No routable stops (all closed or none geocoded)."
+  if (forRouting.length === 0) {
+    routingNote =
+      "No matching open tasks with a place name or saved location (due by end of today, earlier, or no deadline). Future deadlines are excluded."
   } else {
     const useStart =
       typeof startLat === "number" &&
@@ -147,34 +188,35 @@ export async function POST(request: Request) {
       !Number.isNaN(startLng)
 
     const canMatrix =
-      routable.length >= 2 || (routable.length === 1 && useStart)
+      forRouting.length >= 2 || (forRouting.length === 1 && useStart)
 
     if (!canMatrix) {
       routingNote =
-        "Add another open stop or set your start on the map to draw a route."
+        "Add another stop or set your start on the map to draw a route (tasks without a deadline are included at the end of the visit list)."
     } else {
       const matrixCoords: LngLat[] = useStart
-        ? [[startLng, startLat], ...routable.map((p) => [p.lng, p.lat] as LngLat)]
-        : routable.map((p) => [p.lng, p.lat] as LngLat)
+        ? [[startLng, startLat], ...forRouting.map((p) => [p.lng, p.lat] as LngLat)]
+        : forRouting.map((p) => [p.lng, p.lat] as LngLat)
 
-      const matrix = await orsMatrix(matrixCoords)
-      if (matrix?.length) {
-        const order = greedyDurationOrder(matrix, 0)
-        const orderedCoords = order.map((i) => matrixCoords[i])
-        orderedTaskIds = order
-          .filter((i) => !(useStart && i === 0))
-          .map((i) => {
-            const idx = useStart ? i - 1 : i
-            return routable[idx]?.taskId ?? ""
-          })
-          .filter(Boolean)
+      orderedTaskIds = forRouting.map((p) => p.taskId)
 
+      const orderedCoords = matrixCoords
+
+      const orderHint =
+        "Order: priority, then deadline (earlier first) for dated tasks; tasks without a deadline are last."
+
+      if (hasOrs) {
         const line = await orsDirectionsLineString(orderedCoords)
         if (line?.length) {
           routeLine = line.map(([lng, lat]) => [lat, lng] as [number, number])
+        } else if (orderedCoords.length >= 2) {
+          routeLine = lngLatWaypointsToLeaflet(orderedCoords)
+          routingNote =
+            `Road geometry unavailable from OpenRouteService. ${orderHint} Check API key, quota, or restart the dev server after changing .env.`
         }
-      } else {
-        routingNote = "Could not build a duration matrix (check ORS quota or coordinates)."
+      } else if (orderedCoords.length >= 2) {
+        routeLine = lngLatWaypointsToLeaflet(orderedCoords)
+        routingNote = `Set OPENROUTESERVICE_API_KEY for road-snapped lines. ${orderHint}`
       }
     }
   }
@@ -182,7 +224,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     places: enriched,
     closedPlaces: closed.map((p) => p.taskId),
-    routableTaskIds: routable.map((p) => p.taskId),
+    routableTaskIds: forRouting.map((p) => p.taskId),
     orderedTaskIds,
     routeLine,
     routingNote,
