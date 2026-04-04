@@ -64,7 +64,7 @@ Rules:
 5. Do NOT echo unchanged values into "updates" just to repeat the current form. Omit keys that should stay the same.
 6. If the user asks to clear, reset, empty, or wipe the form (e.g. "clear form", "start over"), set "clearForm": true and use "updates": {}.
 7. For deadline: use "deadlineIso" as ISO 8601 string, or null to clear the deadline if they ask to remove it.
-8. category must be one of: work, personal, health, errand, other (only include "category" in updates when it should change).
+8. category must be one of: work, personal, health, errand, education, other (only include "category" in updates when it should change).
 9. durationMinutes: integer minutes, minimum 15 (only when the user mentions duration or time length for the task).
 10. In title, description, and locationName strings, use normal English capitalization and punctuation (sentence case, periods where appropriate).
 
@@ -123,7 +123,7 @@ async function callChatCompletions(
   return content.trim()
 }
 
-const CATEGORY_SET = new Set(["work", "personal", "health", "errand", "other"])
+const CATEGORY_SET = new Set(["work", "personal", "health", "errand", "education", "other"])
 
 function clampDuration(n: number): number {
   return Math.max(15, Math.min(24 * 60, n))

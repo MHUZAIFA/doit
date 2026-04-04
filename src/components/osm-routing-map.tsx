@@ -19,27 +19,18 @@ export type OsmMapPlace = {
   title: string
   displayName?: string
   hoursStatus: "open" | "closed" | "unknown"
+  /** Matches suggested-route stop color (by visit order). */
+  colorHex: string
 }
 
-const pinIcons: Record<string, L.DivIcon> = {
-  open: L.divIcon({
+function taskPinIcon(colorHex: string): L.DivIcon {
+  const safe = /^#[0-9a-fA-F]{6}$/.test(colorHex) ? colorHex : "#64748b"
+  return L.divIcon({
     className: "osm-leaflet-pin",
-    html: `<div style="width:14px;height:14px;background:#16a34a;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+    html: `<div style="width:14px;height:14px;background:${safe};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
     iconSize: [14, 14],
     iconAnchor: [7, 7],
-  }),
-  closed: L.divIcon({
-    className: "osm-leaflet-pin",
-    html: `<div style="width:14px;height:14px;background:#dc2626;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  }),
-  unknown: L.divIcon({
-    className: "osm-leaflet-pin",
-    html: `<div style="width:14px;height:14px;background:#64748b;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  }),
+  })
 }
 
 const startIcon = L.divIcon({
@@ -95,6 +86,14 @@ export default function OsmRoutingMap({
     return [40.7128, -74.006]
   }, [places, start])
 
+  const pinIconsByColor = useMemo(() => {
+    const m = new Map<string, L.DivIcon>()
+    for (const p of places) {
+      if (!m.has(p.colorHex)) m.set(p.colorHex, taskPinIcon(p.colorHex))
+    }
+    return m
+  }, [places])
+
   return (
     <div className={className ?? OSM_ROUTING_MAP_FRAME_CLASS}>
       <MapContainer
@@ -114,7 +113,7 @@ export default function OsmRoutingMap({
         <Marker
           key={p.id}
           position={[p.lat, p.lng]}
-          icon={pinIcons[p.hoursStatus] ?? pinIcons.unknown}
+          icon={pinIconsByColor.get(p.colorHex) ?? taskPinIcon(p.colorHex)}
         >
           <Popup>
             <div className="min-w-[160px] text-sm">

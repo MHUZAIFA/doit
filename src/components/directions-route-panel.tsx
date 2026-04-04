@@ -4,6 +4,7 @@ import { Clock, MapPin, Navigation } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { priorityBadgeVariant } from "@/lib/task-badges"
+import { routeStopColorHex } from "@/lib/route-stop-colors"
 import { cn } from "@/lib/utils"
 
 export type DirectionsPlace = {
@@ -99,15 +100,14 @@ export function DirectionsRoutePanel({ orderedTaskIds, places, start, className 
               if (prev) from = { lat: prev.lat, lng: prev.lng }
             }
             const gmapsHref = t ? googleMapsDirUrl(t.lat, t.lng, from) : null
+            const stopColor = routeStopColorHex(index)
 
             return (
               <li key={id} className="relative flex gap-3">
                 <div className="flex w-9 shrink-0 flex-col items-center pt-0.5">
                   <span
-                    className={cn(
-                      "z-10 flex size-8 items-center justify-center rounded-full border-2 bg-background text-[13px] font-semibold tabular-nums shadow-sm ring-2 ring-background",
-                      "border-primary text-primary"
-                    )}
+                    className="z-10 flex size-8 items-center justify-center rounded-full border-2 border-solid bg-background text-[13px] font-semibold tabular-nums shadow-sm ring-2 ring-background"
+                    style={{ borderColor: stopColor, color: stopColor }}
                     aria-label={`Stop ${index + 1}`}
                   >
                     {index + 1}

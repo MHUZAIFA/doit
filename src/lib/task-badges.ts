@@ -12,7 +12,7 @@ export function priorityBadgeVariant(priority: string): PriorityBadgeVariant {
   return PRIORITY_VARIANT[priority] ?? "secondary"
 }
 
-/** Tinted outline-style badges per category (work, personal, health, errand, other). */
+/** Tinted outline-style badges per category (work, personal, health, errand, education, other). */
 const CATEGORY_CLASS: Record<string, string> = {
   work: "border-violet-500/45 bg-violet-500/10 text-violet-800 dark:border-violet-400/40 dark:bg-violet-400/12 dark:text-violet-100",
   personal:
@@ -21,6 +21,8 @@ const CATEGORY_CLASS: Record<string, string> = {
     "border-emerald-500/45 bg-emerald-500/10 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-400/12 dark:text-emerald-50",
   errand:
     "border-amber-500/45 bg-amber-500/10 text-amber-950 dark:border-amber-400/40 dark:bg-amber-400/12 dark:text-amber-50",
+  education:
+    "border-indigo-500/45 bg-indigo-500/10 text-indigo-950 dark:border-indigo-400/40 dark:bg-indigo-400/12 dark:text-indigo-50",
   other: "border-border bg-muted/60 text-muted-foreground",
 }
 

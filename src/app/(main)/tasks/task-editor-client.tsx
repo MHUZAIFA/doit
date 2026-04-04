@@ -35,6 +35,7 @@ const CATEGORIES = [
   { value: "personal", label: "Personal" },
   { value: "health", label: "Health" },
   { value: "errand", label: "Errand" },
+  { value: "education", label: "Education" },
   { value: "other", label: "Other" },
 ] as const
 

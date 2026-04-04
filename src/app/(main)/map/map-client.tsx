@@ -1,13 +1,14 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Crosshair, Loader2, Route } from "lucide-react"
 import { toast } from "sonner"
 
 import { DirectionsRoutePanel } from "@/components/directions-route-panel"
 import type { OsmMapPlace } from "@/components/osm-routing-map"
 import { Button } from "@/components/ui/button"
+import { routeStopColorHex } from "@/lib/route-stop-colors"
 import { OSM_ROUTING_MAP_FRAME_CLASS } from "@/lib/task-location-map-classes"
 import { cn } from "@/lib/utils"
 
@@ -147,19 +148,23 @@ export function MapClient() {
     )
   }
 
-  function clearStart() {
-    setStart(null)
-    toast.message("Start cleared — optimizing across task stops only")
-  }
-
-  const mapPlaces: OsmMapPlace[] = (plan?.places ?? []).map((p) => ({
-    id: p.taskId,
-    lat: p.lat,
-    lng: p.lng,
-    title: p.title,
-    displayName: p.displayName,
-    hoursStatus: p.hoursStatus,
-  }))
+  const mapPlaces: OsmMapPlace[] = useMemo(() => {
+    const places = plan?.places ?? []
+    const order = plan?.orderedTaskIds ?? []
+    return places.map((p) => {
+      const orderIndex = order.indexOf(p.taskId)
+      const idx = orderIndex >= 0 ? orderIndex : places.indexOf(p)
+      return {
+        id: p.taskId,
+        lat: p.lat,
+        lng: p.lng,
+        title: p.title,
+        displayName: p.displayName,
+        hoursStatus: p.hoursStatus,
+        colorHex: routeStopColorHex(idx >= 0 ? idx : 0),
+      }
+    })
+  }, [plan])
 
   return (
     <div className="mx-auto w-full max-w-[1600px]">
