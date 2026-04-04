@@ -354,7 +354,7 @@ export default function NewTaskClientPage() {
       lngT &&
       !Number.isNaN(parseFloat(latT)) &&
       !Number.isNaN(parseFloat(lngT)))
-  const canSave = title.trim().length > 0 && coordsValid
+  const canSave = title.trim().length > 0 && coordsValid && durationMinutes >= 15 && durationMinutes <= MAX_DURATION_MINUTES
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-8">
@@ -697,11 +697,7 @@ export default function NewTaskClientPage() {
                       if (raw === "") return
                       const n = Number(raw)
                       if (!Number.isFinite(n)) return
-                      const clamped = Math.min(
-                        MAX_DURATION_MINUTES,
-                        Math.max(15, Math.round(n))
-                      )
-                      setDurationMinutes(clamped)
+                      setDurationMinutes(n)
                     }}
                     disabled={saving}
                     className="h-7 flex-1 basis-0 px-2 text-xs tabular-nums"
