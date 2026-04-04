@@ -739,11 +739,9 @@ export default function NewTaskClientPage() {
           </div>
         </div>
 
-        <div className="border-t border-border pt-6 dark:border-white/10">
-          <Button type="submit" className="h-10 w-full" disabled={saving || !canSave}>
+        <Button type="submit" className="h-10 w-full" disabled={saving || !canSave}>
             {saving ? "Creating…" : "Create task"}
           </Button>
-        </div>
       </form>
     </div>
   )
