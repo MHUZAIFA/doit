@@ -141,7 +141,7 @@ export async function summarizeSchedulingContext(prompt: string): Promise<string
         {
           role: "system",
           content:
-            "You are DoIt, a concise productivity coach. Reply in under 120 words with actionable scheduling advice.",
+            "You are the AI assistant inside the Done. app (the product name includes the period). Be concise; reply in under 120 words with actionable scheduling advice.",
         },
         { role: "user", content: prompt },
       ]

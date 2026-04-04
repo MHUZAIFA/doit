@@ -1,12 +1,13 @@
 import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 
+import { siteFooterScrollPadding } from "@/components/site-footer"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const features = [
   {
     title: "Talk to your task list",
-    lead: "Describe work in plain English. DoIt parses titles, times, places, and priority—no form fatigue.",
+    lead: "Describe work in plain English. Titles, times, places, and priority are parsed for you—no form fatigue.",
     detail: "Powered by Grok or OpenAI when you add API keys; sensible fallbacks when you don’t.",
   },
   {
@@ -30,7 +31,12 @@ export default function HomePage() {
   return (
     <div className="flex min-h-full flex-col bg-background">
       <header className="flex items-center justify-between px-6 py-5 md:px-10 lg:px-12">
-        <span className="text-[15px] font-medium tracking-tight">DoIt</span>
+        <Link
+          href="/"
+          className="text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Done.
+        </Link>
         <div className="flex items-center gap-1 sm:gap-2">
           <ThemeToggle />
           <Link
@@ -42,7 +48,9 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col px-6 pb-24 pt-8 md:px-10 md:pt-14 lg:px-12 lg:pt-20">
+      <main
+        className={`flex flex-1 flex-col px-6 pt-8 md:px-10 md:pt-14 lg:px-12 lg:pt-20 ${siteFooterScrollPadding}`}
+      >
         <div className="mx-auto w-full max-w-3xl">
           <p className="mb-5 text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
             Scheduling
@@ -87,7 +95,7 @@ export default function HomePage() {
               Built for real schedules—not slide decks.
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-              Four things that make DoIt feel like a tool you’ll actually open every morning.
+              Four things that make this feel like a tool you’ll actually open every morning.
             </p>
           </div>
 

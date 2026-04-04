@@ -20,14 +20,14 @@ export function PasswordInput({ id, className, disabled, ...props }: PasswordInp
         id={id}
         type={visible ? "text" : "password"}
         disabled={disabled}
-        className={cn("h-11 pr-11 text-[15px] dark:border-white/10", className)}
+        className={cn("pr-10 dark:border-white/10", className)}
         {...props}
       />
       <Button
         type="button"
         variant="ghost"
         size="icon"
-        className="absolute right-0.5 top-1/2 size-9 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
         onClick={() => setVisible((v) => !v)}
         disabled={disabled}
         aria-label={visible ? "Hide password" : "Show password"}

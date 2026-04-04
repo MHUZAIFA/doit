@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { NotificationsPopover } from "@/components/notifications-popover"
+import { siteFooterScrollPadding } from "@/components/site-footer"
 import {
   Sheet,
   SheetContent,
@@ -23,8 +24,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { Separator } from "@/components/ui/separator"
-
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tasks/new", label: "Tasks", icon: ListTodo },
@@ -82,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </SheetTrigger>
               <SheetContent side="left" className="w-72">
                 <SheetHeader>
-                  <SheetTitle>DoIt</SheetTitle>
+                  <SheetTitle>Menu</SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 flex flex-col gap-2">
                   <NavLinks mobile pathname={pathname} />
@@ -91,8 +90,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Sheet>
           </div>
 
-          <Link href="/dashboard" className="font-semibold tracking-tight">
-            DoIt
+          <Link href="/dashboard" className="text-[13px] font-semibold tracking-tight text-foreground hover:opacity-80">
+            Done.
           </Link>
 
           <NavLinks pathname={pathname} />
@@ -111,14 +110,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
+      <main
+        className={`mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 ${siteFooterScrollPadding}`}
+      >
         {children}
       </main>
-
-      <footer className="border-t py-6 text-center text-xs text-muted-foreground">
-        <Separator className="mb-4" />
-        DoIt — AI productivity & scheduling
-      </footer>
     </div>
   )
 }

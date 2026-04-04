@@ -4,6 +4,8 @@
 
 :root {
   --radius: 0.5rem;
+  /* Extra-small radius for text fields (inputs, selects, textareas) */
+  --radius-xs: 0.125rem;
   --background: #fafafa;
   --foreground: #0a0a0a;
   --card: #ffffff;

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { ScheduleOptionCards, type ScheduleOptionView } from "@/components/schedule-option-cards"
@@ -19,8 +19,24 @@ export default function SchedulePage() {
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [tasks, setTasks] = useState<TaskView[]>([])
   const [loading, setLoading] = useState(false)
+  const lastAlertSig = useRef("")
 
   const titles = Object.fromEntries(tasks.map((t) => [t.id, t.title]))
+
+  useEffect(() => {
+    if (alerts.length === 0) {
+      lastAlertSig.current = ""
+      return
+    }
+    const sig = alerts.join("\n")
+    if (sig === lastAlertSig.current) return
+    lastAlertSig.current = sig
+    if (alerts.length === 1) {
+      toast.warning(alerts[0]!)
+      return
+    }
+    toast.warning("Schedule alerts", { description: alerts.join("\n") })
+  }, [alerts])
 
   const refresh = useCallback(async () => {
     const [sch, tsk] = await Promise.all([
@@ -57,10 +73,11 @@ export default function SchedulePage() {
       setOptions(data.schedule?.scheduleOptions ?? [])
       setAlerts(data.schedule?.alerts ?? [])
       setAiSummary(data.schedule?.aiSummary ?? null)
-      if ((data.schedule?.alerts?.length ?? 0) > 0 && (data.schedule?.scheduleOptions?.length ?? 0) === 0) {
-        toast.warning("No valid schedule — check alerts")
-      } else {
+      const optCount = data.schedule?.scheduleOptions?.length ?? 0
+      if (optCount > 0) {
         toast.success("Schedule options updated")
+      } else if ((data.schedule?.alerts?.length ?? 0) === 0) {
+        toast.message("No schedule options for this day.")
       }
     } catch {
       toast.error("Network error")
@@ -100,14 +117,6 @@ export default function SchedulePage() {
           </CardHeader>
           <CardContent className="whitespace-pre-wrap text-sm text-muted-foreground">{aiSummary}</CardContent>
         </Card>
-      )}
-
-      {alerts.length > 0 && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-          {alerts.map((a) => (
-            <p key={a}>{a}</p>
-          ))}
-        </div>
       )}
 
       <ScheduleOptionCards options={options} taskTitles={titles} />

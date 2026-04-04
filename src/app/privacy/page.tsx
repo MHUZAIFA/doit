@@ -1,8 +1,10 @@
 import Link from "next/link"
 
+import { siteFooterScrollPadding } from "@/components/site-footer"
+
 export default function PrivacyPage() {
   return (
-    <div className="min-h-full bg-background px-6 py-12 md:px-10">
+    <div className={`min-h-full bg-background px-6 py-12 md:px-10 ${siteFooterScrollPadding}`}>
       <div className="mx-auto max-w-xl">
         <Link
           href="/register"

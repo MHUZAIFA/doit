@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
 import { AuthPageShell } from "@/components/auth-page-shell"
-import { AuthFormAlert } from "@/components/auth/auth-form-alert"
 import { PasswordInput } from "@/components/auth/password-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,7 +19,6 @@ export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
 
   function validateEmail(value: string) {
@@ -35,7 +33,6 @@ export function LoginForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setFormError(null)
     setEmailError(null)
 
     const trimmedEmail = email.trim()
@@ -44,7 +41,7 @@ export function LoginForm() {
       return
     }
     if (!password) {
-      setFormError("Enter your password.")
+      toast.error("Enter your password.")
       return
     }
 
@@ -58,21 +55,24 @@ export function LoginForm() {
       const data = await res.json()
       if (!res.ok) {
         const msg = typeof data.error === "string" ? data.error : "Sign in failed."
-        setFormError(msg)
         toast.error(msg)
         return
       }
-      toast.success("Welcome back")
+      const user = data.user as { name?: string } | undefined
+      const displayName = typeof user?.name === "string" ? user.name.trim() : ""
+      toast.success(displayName ? `Welcome back, ${displayName}!` : "Welcome back")
       router.push(next)
       router.refresh()
     } catch {
-      const msg = "Something went wrong. Check your connection and try again."
-      setFormError(msg)
-      toast.error("Network error")
+      toast.error("Something went wrong. Check your connection and try again.")
     } finally {
       setLoading(false)
     }
   }
+
+  const trimmedEmail = email.trim()
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)
+  const canSubmit = emailValid && password.length > 0
 
   return (
     <AuthPageShell
@@ -93,8 +93,6 @@ export function LoginForm() {
         aria-busy={loading}
         noValidate
       >
-          <AuthFormAlert message={formError} />
-
           <div className="space-y-2">
             <Label htmlFor="email" className="text-[12px] font-medium text-muted-foreground">
               Work email <span className="text-destructive">*</span>
@@ -110,13 +108,12 @@ export function LoginForm() {
               onChange={(e) => {
                 setEmail(e.target.value)
                 if (emailError) validateEmail(e.target.value)
-                if (formError) setFormError(null)
               }}
               onBlur={() => validateEmail(email)}
               aria-invalid={Boolean(emailError)}
               aria-describedby={emailError ? "email-error" : undefined}
               disabled={loading}
-              className="h-11 text-[15px] dark:border-white/10"
+              className="dark:border-white/10"
               placeholder="you@company.com"
             />
             {emailError ? (
@@ -143,10 +140,7 @@ export function LoginForm() {
               name="password"
               autoComplete="current-password"
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value)
-                if (formError) setFormError(null)
-              }}
+              onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               required
             />
@@ -154,8 +148,8 @@ export function LoginForm() {
 
           <Button
             type="submit"
-            className="h-11 w-full rounded-md text-[14px] font-medium"
-            disabled={loading}
+            className="h-11 w-full text-[14px] font-medium"
+            disabled={loading || !canSubmit}
           >
             {loading ? "Signing in…" : "Sign in"}
           </Button>

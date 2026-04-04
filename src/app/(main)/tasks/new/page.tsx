@@ -107,6 +107,20 @@ export default function NewTaskPage() {
     }
   }
 
+  const latT = lat.trim()
+  const lngT = lng.trim()
+  const coordsValid =
+    (!latT && !lngT) ||
+    (latT &&
+      lngT &&
+      !Number.isNaN(parseFloat(latT)) &&
+      !Number.isNaN(parseFloat(lngT)))
+  const canSave =
+    title.trim().length > 0 &&
+    Number.isFinite(durationMinutes) &&
+    durationMinutes >= 15 &&
+    coordsValid
+
   return (
     <div className="mx-auto max-w-xl space-y-8">
       <div>
@@ -128,7 +142,12 @@ export default function NewTaskPage() {
             onChange={(e) => setNlp(e.target.value)}
             rows={4}
           />
-          <Button type="button" variant="secondary" disabled={parsing} onClick={parseNlp}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={parsing || !nlp.trim()}
+            onClick={parseNlp}
+          >
             {parsing ? "Parsing…" : "Parse with AI"}
           </Button>
         </CardContent>
@@ -154,7 +173,7 @@ export default function NewTaskPage() {
                 if (v) setCategory(v)
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full min-w-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -174,7 +193,7 @@ export default function NewTaskPage() {
                 if (v === "low" || v === "medium" || v === "high") setPriority(v)
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full min-w-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -225,7 +244,7 @@ export default function NewTaskPage() {
             />
           </div>
         </div>
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || !canSave}>
           {saving ? "Saving…" : "Save task"}
         </Button>
       </form>

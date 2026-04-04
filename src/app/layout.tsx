@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { UserThemeBootstrap } from "@/components/user-theme-bootstrap"
+import { SiteFooter } from "@/components/site-footer"
 import { Toaster } from "@/components/ui/sonner"
 import { ServiceWorkerRegister } from "@/components/service-worker-register"
 
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "DoIt — AI productivity & scheduling",
+  title: "Done.",
   description:
     "Plan tasks with AI, maps, and weather-aware scheduling. Light and dark mode.",
 }
@@ -41,7 +42,14 @@ export default function RootLayout({
         >
           <UserThemeBootstrap />
           {children}
-          <Toaster position="top-center" richColors />
+          <SiteFooter />
+          <Toaster
+            position="bottom-center"
+            richColors
+            closeButton
+            offset={{ bottom: "5rem" }}
+            mobileOffset={{ bottom: "6rem" }}
+          />
           <ServiceWorkerRegister />
         </ThemeProvider>
       </body>

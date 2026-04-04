@@ -125,7 +125,7 @@ export default function ChatPage() {
           <div className="flex flex-col gap-2 sm:flex-row">
             <Textarea
               className="min-h-[80px] flex-1"
-              placeholder="Message DoIt…"
+              placeholder="Message Done.…"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -136,7 +136,11 @@ export default function ChatPage() {
               }}
             />
             <div className="flex shrink-0 flex-col gap-2">
-              <Button type="button" disabled={loading} onClick={() => send(input)}>
+              <Button
+                type="button"
+                disabled={loading || !input.trim()}
+                onClick={() => send(input)}
+              >
                 <Send className="mr-2 size-4" />
                 Send
               </Button>

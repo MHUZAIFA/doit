@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app-shell"
-import { OfflineBanner } from "@/components/offline-banner"
+import { OfflineToastListener } from "@/components/offline-toast-listener"
 
 export default function MainAppLayout({
   children,
@@ -8,7 +8,7 @@ export default function MainAppLayout({
 }) {
   return (
     <>
-      <OfflineBanner />
+      <OfflineToastListener />
       <AppShell>{children}</AppShell>
     </>
   )

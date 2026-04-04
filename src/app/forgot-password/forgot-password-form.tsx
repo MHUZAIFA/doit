@@ -5,7 +5,6 @@ import Link from "next/link"
 import { toast } from "sonner"
 
 import { AuthPageShell } from "@/components/auth-page-shell"
-import { AuthFormAlert } from "@/components/auth/auth-form-alert"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -15,14 +14,12 @@ export function ForgotPasswordForm() {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setFormError(null)
     const trimmed = email.trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setFormError("Enter a valid email address.")
+      toast.error("Enter a valid email address.")
       return
     }
 
@@ -36,17 +33,19 @@ export function ForgotPasswordForm() {
       const data = await res.json()
       if (!res.ok) {
         const msg = typeof data.error === "string" ? data.error : "Request failed."
-        setFormError(msg)
+        toast.error(msg)
         return
       }
       setDone(true)
       toast.success("Request received")
     } catch {
-      setFormError("Something went wrong. Try again.")
+      toast.error("Something went wrong. Try again.")
     } finally {
       setLoading(false)
     }
   }
+
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
 
   return (
     <AuthPageShell
@@ -75,7 +74,7 @@ export function ForgotPasswordForm() {
             href="/login"
             className={cn(
               buttonVariants({ variant: "secondary" }),
-              "flex h-11 w-full items-center justify-center rounded-md text-[14px] font-medium"
+              "flex h-11 w-full items-center justify-center text-[14px] font-medium"
             )}
           >
             Return to sign in
@@ -83,7 +82,6 @@ export function ForgotPasswordForm() {
         </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-5" noValidate>
-          <AuthFormAlert message={formError} />
           <div className="space-y-2">
             <Label htmlFor="fp-email" className="text-[12px] font-medium text-muted-foreground">
               Email <span className="text-destructive">*</span>
@@ -93,16 +91,17 @@ export function ForgotPasswordForm() {
               type="email"
               autoComplete="email"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                setFormError(null)
-              }}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
-              className="h-11 text-[15px] dark:border-white/10"
+              className="dark:border-white/10"
               placeholder="you@company.com"
             />
           </div>
-          <Button type="submit" className="h-11 w-full rounded-md text-[14px] font-medium" disabled={loading}>
+          <Button
+            type="submit"
+            className="h-11 w-full text-[14px] font-medium"
+            disabled={loading || !emailValid}
+          >
             {loading ? "Sending…" : "Send reset link"}
           </Button>
         </form>

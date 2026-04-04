@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { AuthPageShell } from "@/components/auth-page-shell"
-import { AuthFormAlert } from "@/components/auth/auth-form-alert"
 import { PasswordInput } from "@/components/auth/password-input"
 import { PasswordRequirements } from "@/components/auth/password-requirements"
 import { PasswordStrengthMeter } from "@/components/auth/password-strength"
@@ -24,7 +23,6 @@ export function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
   const [confirmError, setConfirmError] = useState<string | null>(null)
 
@@ -40,14 +38,13 @@ export function RegisterForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setFormError(null)
     setConfirmError(null)
 
     const trimmedName = name.trim()
     const trimmedEmail = email.trim()
 
     if (trimmedName.length < 2) {
-      setFormError("Please enter your full name (at least 2 characters).")
+      toast.error("Please enter your full name (at least 2 characters).")
       return
     }
 
@@ -57,7 +54,7 @@ export function RegisterForm() {
     }
 
     if (password.length < 8) {
-      setFormError("Password must be at least 8 characters.")
+      toast.error("Password must be at least 8 characters.")
       return
     }
 
@@ -67,7 +64,7 @@ export function RegisterForm() {
     }
 
     if (!acceptedTerms) {
-      setFormError("Please accept the Terms of Service and Privacy Policy to continue.")
+      toast.error("Please accept the Terms of Service and Privacy Policy to continue.")
       return
     }
 
@@ -88,7 +85,6 @@ export function RegisterForm() {
           typeof data.error === "string"
             ? data.error
             : "We couldn’t create your account. Try again."
-        setFormError(msg)
         toast.error(msg)
         return
       }
@@ -96,18 +92,26 @@ export function RegisterForm() {
       router.push("/dashboard")
       router.refresh()
     } catch {
-      const msg = "Something went wrong. Check your connection and try again."
-      setFormError(msg)
-      toast.error("Network error")
+      toast.error("Something went wrong. Check your connection and try again.")
     } finally {
       setLoading(false)
     }
   }
 
+  const trimmedName = name.trim()
+  const trimmedEmail = email.trim()
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)
+  const canSubmit =
+    trimmedName.length >= 2 &&
+    emailValid &&
+    password.length >= 8 &&
+    password === confirmPassword &&
+    acceptedTerms
+
   return (
     <AuthPageShell
       title="Create your account"
-      description="Set up DoIt in a minute. You can change preferences anytime after sign-up."
+      description="Set up your account in a minute. You can change preferences anytime after sign-up."
       alternateAuth={
         <Link
           href="/login"
@@ -118,8 +122,6 @@ export function RegisterForm() {
       }
     >
       <form onSubmit={onSubmit} className="space-y-5" aria-busy={loading} noValidate>
-          <AuthFormAlert message={formError} />
-
           <div className="space-y-2">
             <Label htmlFor="reg-name" className="text-[12px] font-medium text-muted-foreground">
               Full name <span className="text-destructive">*</span>
@@ -129,14 +131,11 @@ export function RegisterForm() {
               name="name"
               autoComplete="name"
               value={name}
-              onChange={(e) => {
-                setName(e.target.value)
-                if (formError) setFormError(null)
-              }}
+              onChange={(e) => setName(e.target.value)}
               disabled={loading}
               required
               minLength={2}
-              className="h-11 text-[15px] dark:border-white/10"
+              className="dark:border-white/10"
               placeholder="Alex Johnson"
             />
           </div>
@@ -156,13 +155,12 @@ export function RegisterForm() {
               onChange={(e) => {
                 setEmail(e.target.value)
                 if (emailError) validateEmail(e.target.value)
-                if (formError) setFormError(null)
               }}
               onBlur={() => validateEmail(email)}
               aria-invalid={Boolean(emailError)}
               aria-describedby={emailError ? "reg-email-error" : undefined}
               disabled={loading}
-              className="h-11 text-[15px] dark:border-white/10"
+              className="dark:border-white/10"
               placeholder="you@company.com"
             />
             {emailError ? (
@@ -183,7 +181,6 @@ export function RegisterForm() {
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value)
-                if (formError) setFormError(null)
                 if (confirmError && confirmPassword === e.target.value) setConfirmError(null)
               }}
               disabled={loading}
@@ -209,7 +206,6 @@ export function RegisterForm() {
               onChange={(e) => {
                 setConfirmPassword(e.target.value)
                 if (confirmError) setConfirmError(null)
-                if (formError) setFormError(null)
               }}
               disabled={loading}
               required
@@ -229,10 +225,7 @@ export function RegisterForm() {
             <Checkbox
               id="terms"
               checked={acceptedTerms}
-              onCheckedChange={(v) => {
-                setAcceptedTerms(v === true)
-                if (formError?.includes("accept")) setFormError(null)
-              }}
+              onCheckedChange={(v) => setAcceptedTerms(v === true)}
               disabled={loading}
               className="mt-0.5"
             />
@@ -252,7 +245,11 @@ export function RegisterForm() {
             </Label>
           </div>
 
-          <Button type="submit" className="h-11 w-full rounded-md text-[14px] font-medium" disabled={loading}>
+          <Button
+            type="submit"
+            className="h-11 w-full text-[14px] font-medium"
+            disabled={loading || !canSubmit}
+          >
             {loading ? "Creating account…" : "Create account"}
           </Button>
       </form>

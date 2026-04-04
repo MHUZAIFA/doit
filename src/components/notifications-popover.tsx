@@ -37,7 +37,7 @@ export function NotificationsPopover() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        className="relative inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background hover:bg-muted"
+        className="relative inline-flex size-8 items-center justify-center rounded-[var(--radius-xs)] border border-border bg-background hover:bg-muted"
         aria-label="Notifications"
       >
         <Bell className="size-4" />
