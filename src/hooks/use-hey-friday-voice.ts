@@ -112,6 +112,8 @@ export type HeyFridayStatus = "off" | "waiting_wake" | "greeting" | "capturing"
 
 export function useHeyFridayVoice(options: {
   onTranscript: (text: string) => void
+  /** Fires once when “Hey Friday” is detected (before greeting / capture). */
+  onWakeDetected?: () => void
   /** Called when recognition stops and there is captured task text (after wake). */
   onSessionEnd?: (fullText: string) => void
   /** Pause length (ms) after your last words before we finalize and run {@link onSessionEnd}. */
@@ -127,11 +129,14 @@ export function useHeyFridayVoice(options: {
 }) {
   const {
     onTranscript,
+    onWakeDetected,
     onSessionEnd,
     captureSilenceMs = DEFAULT_CAPTURE_SILENCE_MS,
     loopWakeAfterSession = false,
     registerLoopStart = false,
   } = options
+  const onWakeDetectedRef = useRef(onWakeDetected)
+  onWakeDetectedRef.current = onWakeDetected
   const recRef = useRef<SpeechRecognition | null>(null)
   const phaseRef = useRef<"seeking_wake" | "capturing">("seeking_wake")
   const bufferRef = useRef("")
@@ -201,8 +206,8 @@ export function useHeyFridayVoice(options: {
       if (registerLoopStart) {
         restartFromLoopRef.current = true
       }
-      onSessionEnd?.(full)
     }
+    onSessionEnd?.(full)
 
     if (!loopWakeAfterSession || wasUserStop) return
 
@@ -353,6 +358,7 @@ export function useHeyFridayVoice(options: {
         if (wake == null) return
 
         wakeTriggeredRef.current = true
+        onWakeDetectedRef.current?.()
 
         const afterWake = full
           .slice(wake.end)
