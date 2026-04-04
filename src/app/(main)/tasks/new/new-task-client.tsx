@@ -677,7 +677,7 @@ export default function NewTaskClientPage() {
                         className={cn(
                           "h-7 min-w-14 shrink-0 px-2 text-sm transition-colors",
                           selected &&
-                            "border-neutral-300 bg-white text-black dark:border-white dark:bg-white dark:text-black dark:hover:bg-white/90"
+                            "border-black bg-black text-white hover:bg-black/90 hover:text-white dark:border-white dark:bg-white dark:text-black dark:hover:bg-white/90"
                         )}
                         onClick={() => setDurationMinutes(p.value)}
                         aria-pressed={selected}
