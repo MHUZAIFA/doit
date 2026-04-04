@@ -473,6 +473,58 @@ export function useHeyFridayVoice(options: {
     startWakeRecognition(SR, silent)
   }, [startWakeRecognition])
 
+  /**
+   * Skip “Hey Friday” and TTS greeting; start capture immediately (e.g. from “Speak with AI” button).
+   */
+  const startDirectCapture = useCallback(async () => {
+    const SR = getSpeechRecognitionCtor()
+    if (!SR) {
+      toast.message("Voice isn’t supported in this browser. Try Chrome or Edge.")
+      return
+    }
+
+    if (!isVoiceContextSupported()) {
+      toast.error(
+        "Voice needs a secure connection. Use https:// or http://localhost for development."
+      )
+      return
+    }
+
+    if (recRef.current) {
+      const prev = recRef.current
+      prev.onend = null
+      recRef.current = null
+      try {
+        prev.stop()
+      } catch {
+        /* */
+      }
+    }
+    if (typeof window !== "undefined") {
+      window.speechSynthesis?.cancel()
+    }
+
+    const micOk = await ensureMicrophoneAccess()
+    if (!micOk) {
+      toast.error(
+        "Microphone blocked or unavailable. Click the lock icon in the address bar → allow Microphone, and check system privacy settings."
+      )
+      return
+    }
+
+    onWakeDetectedRef.current?.()
+
+    sessionActiveRef.current = true
+    handingOffRef.current = false
+    wakeTriggeredRef.current = false
+    bufferRef.current = ""
+    setSpeechDetected(false)
+    phaseRef.current = "capturing"
+    setListening(true)
+
+    attachCaptureRecognition(SR)
+  }, [attachCaptureRecognition])
+
   startRef.current = start
 
   useEffect(
@@ -500,6 +552,7 @@ export function useHeyFridayVoice(options: {
     listening,
     status,
     start,
+    startDirectCapture,
     stop,
     greetingText: GREETING,
     speechDetected,

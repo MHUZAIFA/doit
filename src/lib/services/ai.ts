@@ -1,15 +1,30 @@
+import {
+  normalizeLocationLabelField,
+  normalizeTaskDescriptionField,
+  normalizeTaskTitleField,
+} from "@/lib/ai-text-normalize"
 import { textImpliesClearForm } from "@/lib/task-parse-utils"
 
+/** Fields the model intends to change; omit keys that should stay as-is on the form. */
+export type TaskFormUpdates = {
+  title?: string
+  description?: string
+  category?: string
+  locationName?: string
+  durationMinutes?: number
+  deadlineIso?: string | null
+  priority?: "low" | "medium" | "high"
+}
+
+/** Result of parsing natural language into task form changes. */
 export type ParsedTaskFields = {
   /** When true, discard all form fields and start fresh. */
   clearForm?: boolean
-  title: string
-  description?: string
-  category: string
-  locationName?: string
-  durationMinutes: number
-  deadlineIso?: string | null
-  priority: "low" | "medium" | "high"
+  /**
+   * Only keys present here replace the corresponding form field. Missing keys leave the UI unchanged.
+   * When there is no existing form snapshot, include every field needed for a coherent task (at least `title`).
+   */
+  updates: TaskFormUpdates
   constraints?: Record<string, unknown>
 }
 
@@ -39,26 +54,37 @@ function resolveGroqKey(): string | undefined {
 
 const SYSTEM_PARSE = `You are a scheduling assistant. You may receive a JSON snapshot of the CURRENT FORM plus a user message.
 
-Merge rules:
-- Preserve existing field values unless the user changes them, adds detail, or clearly contradicts.
-- Only update fields the user mentions or clearly implies.
-- If the user asks to clear, reset, empty, or wipe the form (e.g. "clear form", "start over", "reset everything"), set "clearForm": true. Do not merge in that case.
+Your job is to return ONLY the fields the user actually wants to change — not a full form copy.
 
-Respond with ONLY valid JSON (no markdown) matching this shape:
+Rules:
+1. Respond with JSON containing an "updates" object. Put a field in "updates" ONLY if the user asked to change it, added new information for it, or clearly implied a new value for that field.
+2. If the user mentions one thing (e.g. "make it high priority", "deadline Friday 5pm", "rename to Buy milk"), include ONLY the key(s) for that — e.g. {"priority":"high"} or {"deadlineIso":"..."} or {"title":"Buy milk"}.
+3. If the user describes a whole new task with no prior form (or asks to replace everything), include every relevant key in "updates" (at least "title" for a new task).
+4. If the user adds detail to one area (e.g. longer notes), you may include only "description" or only "title" as appropriate.
+5. Do NOT echo unchanged values into "updates" just to repeat the current form. Omit keys that should stay the same.
+6. If the user asks to clear, reset, empty, or wipe the form (e.g. "clear form", "start over"), set "clearForm": true and use "updates": {}.
+7. For deadline: use "deadlineIso" as ISO 8601 string, or null to clear the deadline if they ask to remove it.
+8. category must be one of: work, personal, health, errand, other (only include "category" in updates when it should change).
+9. durationMinutes: integer minutes, minimum 15 (only when the user mentions duration or time length for the task).
+10. In title, description, and locationName strings, use normal English capitalization and punctuation (sentence case, periods where appropriate).
+
+Respond with ONLY valid JSON (no markdown), shape:
 {
   "clearForm"?: boolean,
-  "title": string,
-  "description"?: string,
-  "category": string (work|personal|health|errand|other),
-  "locationName"?: string,
-  "durationMinutes": number (default 60),
-  "deadlineIso"?: string | null (ISO 8601 if mentioned),
-  "priority": "low"|"medium"|"high",
+  "updates": {
+    "title"?: string,
+    "description"?: string,
+    "category"?: string,
+    "locationName"?: string,
+    "durationMinutes"?: number,
+    "deadlineIso"?: string | null,
+    "priority"?: "low"|"medium"|"high"
+  },
   "constraints"?: object
 }
 
-When "clearForm" is true, you may use empty strings and defaults; title may be "".
-When "clearForm" is false or omitted, "title" must be a non-empty string.`
+When "clearForm" is true, "updates" may be {}.
+When there is NO current form and the user describes a new task, "updates" must include at least "title" (non-empty string).`
 
 async function callChatCompletions(
   baseUrl: string,
@@ -97,43 +123,78 @@ async function callChatCompletions(
   return content.trim()
 }
 
+const CATEGORY_SET = new Set(["work", "personal", "health", "errand", "other"])
+
+function clampDuration(n: number): number {
+  return Math.max(15, Math.min(24 * 60, n))
+}
+
+function normalizeUpdates(raw: Record<string, unknown>): TaskFormUpdates {
+  const u: TaskFormUpdates = {}
+  if (typeof raw.title === "string") u.title = normalizeTaskTitleField(raw.title)
+  if (typeof raw.description === "string") u.description = normalizeTaskDescriptionField(raw.description)
+  if (typeof raw.category === "string" && CATEGORY_SET.has(raw.category)) u.category = raw.category
+  if (typeof raw.locationName === "string") u.locationName = normalizeLocationLabelField(raw.locationName)
+  if (raw.durationMinutes != null && Number.isFinite(Number(raw.durationMinutes))) {
+    u.durationMinutes = clampDuration(Number(raw.durationMinutes))
+  }
+  if (raw.deadlineIso === null) u.deadlineIso = null
+  else if (typeof raw.deadlineIso === "string") u.deadlineIso = raw.deadlineIso
+  if (raw.priority === "low" || raw.priority === "medium" || raw.priority === "high") {
+    u.priority = raw.priority
+  }
+  return u
+}
+
+/** Legacy API shape (full flat object) — treat as full updates. */
+function legacyFlatToUpdates(parsed: Record<string, unknown>): TaskFormUpdates {
+  const u: TaskFormUpdates = {}
+  if (typeof parsed.title === "string") u.title = normalizeTaskTitleField(parsed.title)
+  if (typeof parsed.description === "string") u.description = normalizeTaskDescriptionField(parsed.description)
+  if (typeof parsed.category === "string" && CATEGORY_SET.has(parsed.category)) u.category = parsed.category
+  if (typeof parsed.locationName === "string") u.locationName = normalizeLocationLabelField(parsed.locationName)
+  if (parsed.durationMinutes != null && Number.isFinite(Number(parsed.durationMinutes))) {
+    u.durationMinutes = clampDuration(Number(parsed.durationMinutes))
+  }
+  if (parsed.deadlineIso === null) u.deadlineIso = null
+  else if (typeof parsed.deadlineIso === "string") u.deadlineIso = parsed.deadlineIso
+  if (parsed.priority === "low" || parsed.priority === "medium" || parsed.priority === "high") {
+    u.priority = parsed.priority
+  }
+  return u
+}
+
 function parseJsonFromModel(text: string): ParsedTaskFields {
   const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "")
-  const parsed = JSON.parse(cleaned) as ParsedTaskFields
+  const parsed = JSON.parse(cleaned) as Record<string, unknown>
+
+  const constraints =
+    parsed.constraints && typeof parsed.constraints === "object" && !Array.isArray(parsed.constraints)
+      ? (parsed.constraints as Record<string, unknown>)
+      : undefined
+
   if (parsed.clearForm === true) {
-    return {
-      clearForm: true,
-      title: "",
-      description: undefined,
-      category: "other",
-      locationName: undefined,
-      durationMinutes: 60,
-      deadlineIso: null,
-      priority: "medium",
-      constraints: parsed.constraints,
-    }
+    return { clearForm: true, updates: {}, constraints }
   }
-  if (!parsed.title || typeof parsed.title !== "string") {
-    throw new Error("Invalid parse: missing title")
+
+  if (parsed.updates && typeof parsed.updates === "object" && !Array.isArray(parsed.updates)) {
+    const updates = normalizeUpdates(parsed.updates as Record<string, unknown>)
+    return { updates, constraints }
   }
-  return {
-    title: parsed.title,
-    description: parsed.description,
-    category: parsed.category || "other",
-    locationName: parsed.locationName,
-    durationMinutes: Math.max(15, Math.min(24 * 60, Number(parsed.durationMinutes) || 60)),
-    deadlineIso: parsed.deadlineIso ?? null,
-    priority: parsed.priority || "medium",
-    constraints: parsed.constraints,
-  }
+
+  // Legacy: model returned flat fields without "updates"
+  const updates = legacyFlatToUpdates(parsed)
+  return { updates, constraints }
 }
 
 function buildParseUserContent(
   text: string,
   currentForm?: Record<string, unknown> | null
 ): string {
-  if (!currentForm || Object.keys(currentForm).length === 0) return text
-  return `Current form (merge with the user's message; only change what they mention or imply):\n${JSON.stringify(currentForm, null, 2)}\n\nUser message:\n${text}`
+  if (!currentForm || Object.keys(currentForm).length === 0) {
+    return `No existing form fields yet. Return an "updates" object with everything needed for this task (at least "title").\n\nUser message:\n${text}`
+  }
+  return `Current form (JSON below). Return ONLY an "updates" object whose keys are fields the user wants to change — omit keys that should stay unchanged.\n${JSON.stringify(currentForm, null, 2)}\n\nUser message:\n${text}`
 }
 
 export async function parseTaskFromNaturalLanguage(
@@ -142,12 +203,13 @@ export async function parseTaskFromNaturalLanguage(
 ): Promise<ParsedTaskFields> {
   if (opts?.privacyMode) {
     return {
-      title: "Private task",
-      description: undefined,
-      category: "other",
-      durationMinutes: 60,
-      deadlineIso: null,
-      priority: "medium",
+      updates: {
+        title: normalizeTaskTitleField("Private task"),
+        category: "other",
+        durationMinutes: 60,
+        deadlineIso: null,
+        priority: "medium",
+      },
       constraints: { localOnly: true },
     }
   }
@@ -200,23 +262,20 @@ export async function parseTaskFromNaturalLanguage(
   if (textImpliesClearForm(text)) {
     return {
       clearForm: true,
-      title: "",
-      description: undefined,
-      category: "other",
-      durationMinutes: 60,
-      deadlineIso: null,
-      priority: "medium",
+      updates: {},
       constraints: { fallback: true },
     }
   }
 
-  const title = text.slice(0, 120).trim() || "New task"
+  const title = normalizeTaskTitleField(text.slice(0, 120).trim() || "New task")
   return {
-    title,
-    category: "other",
-    durationMinutes: 60,
-    deadlineIso: null,
-    priority: "medium",
+    updates: {
+      title,
+      category: "other",
+      durationMinutes: 60,
+      deadlineIso: null,
+      priority: "medium",
+    },
     constraints: {
       fallback: true,
       note: "Configure XAI_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY for NLP",

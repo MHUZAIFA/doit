@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, MapPin, Mic, Timer } from "lucide-react"
+import { ArrowLeft, MapPin, Mic, Sparkles, Timer } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import { FormDropdownSelect } from "@/components/form-dropdown-select"
 import { TaskLocationPicker } from "@/components/task-location-picker"
 import { TaskVoiceHeyFriday } from "@/components/task-voice-hey-friday"
 import { textImpliesClearForm } from "@/lib/task-parse-utils"
+import { cn } from "@/lib/utils"
 
 const CATEGORIES = [
   { value: "work", label: "Work" },
@@ -36,9 +37,16 @@ const PRIORITIES = [
   { value: "high" as const, label: "High" },
 ]
 
+const VOICE_HISTORY_MAX = 20
+
+type VoiceHistoryItem = { id: string; text: string; at: number }
+
 export default function NewTaskClientPage() {
   const router = useRouter()
-  const [nlp, setNlp] = useState("")
+  /** Live words for the current Hey Friday session (cleared when the dialog opens again). */
+  const [liveTranscript, setLiveTranscript] = useState("")
+  /** Completed voice messages from earlier sessions on this page. */
+  const [voiceHistory, setVoiceHistory] = useState<VoiceHistoryItem[]>([])
   const [voiceDialogOpen, setVoiceDialogOpen] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -53,6 +61,13 @@ export default function NewTaskClientPage() {
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium")
 
   const resumeHeyFridayRef = useRef<(() => Promise<void>) | null>(null)
+  const startDirectCaptureRef = useRef<(() => Promise<void>) | null>(null)
+  /** True when the user closed the dialog (ESC, overlay, X) — skip applying AI results. */
+  const voiceDismissedRef = useRef(false)
+  /** True when we close the dialog after a finished parse (not a user dismiss). */
+  const parseCloseIntentRef = useRef(false)
+  const parsingRef = useRef(false)
+  const abortParseRef = useRef<(() => void) | null>(null)
 
   const clearFormState = useCallback(() => {
     setTitle("")
@@ -100,14 +115,31 @@ export default function NewTaskClientPage() {
 
       if (textImpliesClearForm(text)) {
         clearFormState()
-        setNlp("")
+        setLiveTranscript("")
         setVoiceDialogOpen(false)
+        setVoiceHistory((prev) => {
+          const next: VoiceHistoryItem[] = [
+            ...prev,
+            { id: crypto.randomUUID(), text, at: Date.now() },
+          ]
+          return next.slice(-VOICE_HISTORY_MAX)
+        })
         toast.success("Form cleared")
         return
       }
 
-      setNlp(text)
+      if (voiceDismissedRef.current) {
+        voiceDismissedRef.current = false
+        return
+      }
+
+      parsingRef.current = true
       setParsing(true)
+
+      const ac = new AbortController()
+      abortParseRef.current = () => {
+        ac.abort()
+      }
 
       const body: {
         text: string
@@ -143,48 +175,101 @@ export default function NewTaskClientPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
+          signal: ac.signal,
         })
         const data = await res.json()
+        if (voiceDismissedRef.current) {
+          return
+        }
         if (!res.ok) {
           toast.error("Could not parse text")
           return
         }
         const f = data.fields as {
           clearForm?: boolean
-          title?: string
-          description?: string
-          category?: string
-          locationName?: string
-          durationMinutes?: number
-          deadlineIso?: string | null
-          priority?: "low" | "medium" | "high"
+          updates?: {
+            title?: string
+            description?: string
+            category?: string
+            locationName?: string
+            durationMinutes?: number
+            deadlineIso?: string | null
+            priority?: "low" | "medium" | "high"
+          }
         }
 
         if (f.clearForm) {
           clearFormState()
-          setNlp("")
+          setLiveTranscript("")
           toast.success("Form cleared")
           return
         }
 
-        setTitle(f.title ?? "")
-        setDescription(f.description ?? "")
-        setCategory(f.category ?? "other")
-        setLocationName(f.locationName ?? "")
-        setDurationMinutes(f.durationMinutes ?? 60)
-        setPriority(f.priority ?? "medium")
-        if (f.deadlineIso) {
-          const d = new Date(f.deadlineIso)
-          setDeadline(d.toISOString().slice(0, 16))
-        } else {
-          setDeadline("")
+        const u = f.updates ?? {}
+        const touched = Object.keys(u)
+        if (touched.length === 0) {
+          toast.message("No fields to update — say what you’d like to change.")
+          return
         }
-        toast.success("Form updated from your description")
-      } catch {
+
+        if (u.title !== undefined) setTitle(u.title)
+        if (u.description !== undefined) setDescription(u.description)
+        if (u.category !== undefined) setCategory(u.category)
+        if (u.locationName !== undefined) setLocationName(u.locationName)
+        if (u.durationMinutes !== undefined) setDurationMinutes(u.durationMinutes)
+        if (u.priority !== undefined) setPriority(u.priority)
+        if (u.deadlineIso !== undefined) {
+          if (u.deadlineIso) {
+            const d = new Date(u.deadlineIso)
+            setDeadline(d.toISOString().slice(0, 16))
+          } else {
+            setDeadline("")
+          }
+        }
+
+        const fieldLabel: Record<string, string> = {
+          title: "title",
+          description: "notes",
+          category: "category",
+          locationName: "place",
+          durationMinutes: "duration",
+          deadlineIso: "deadline",
+          priority: "priority",
+        }
+        toast.success(
+          touched.length === 1
+            ? `Updated ${fieldLabel[touched[0]!] ?? touched[0]}`
+            : `Updated ${touched.length} fields`
+        )
+      } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") {
+          return
+        }
+        if (e instanceof DOMException && e.name === "AbortError") {
+          return
+        }
         toast.error("Network error")
       } finally {
+        parsingRef.current = false
+        abortParseRef.current = null
         setParsing(false)
-        setVoiceDialogOpen(false)
+        const dismissed = voiceDismissedRef.current
+        if (!dismissed) {
+          parseCloseIntentRef.current = true
+          setVoiceDialogOpen(false)
+          if (text.trim()) {
+            setVoiceHistory((prev) => {
+              const next: VoiceHistoryItem[] = [
+                ...prev,
+                { id: crypto.randomUUID(), text, at: Date.now() },
+              ]
+              return next.slice(-VOICE_HISTORY_MAX)
+            })
+          }
+        } else {
+          voiceDismissedRef.current = false
+        }
+        setLiveTranscript("")
       }
     },
     [
@@ -267,27 +352,71 @@ export default function NewTaskClientPage() {
           <ArrowLeft className="size-3.5" aria-hidden />
           Back to dashboard
         </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight md:text-[1.65rem]">New task</h1>
-          <span className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            <Mic className="size-2.5 opacity-80" aria-hidden />
-            Voice or type
-          </span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight md:text-[1.65rem]">New task</h1>
+            <p className="text-[14px] leading-snug text-muted-foreground">
+              Say &quot;Hey Friday&quot; to start hands-free, or tap the button to open the mic — we listen
+              for your task and fill the form.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="default"
+            disabled={saving}
+            aria-label="Open voice: speak your task with AI"
+            onClick={() => {
+              const run = startDirectCaptureRef.current
+              if (!run) {
+                toast.message("Voice isn’t ready yet — try again in a moment.")
+                return
+              }
+              void run()
+            }}
+            className={cn(
+              "relative h-auto min-h-9 shrink-0 gap-2 overflow-hidden rounded-full border-violet-500/45 bg-linear-to-r from-violet-500/[0.14] via-fuchsia-500/10 to-cyan-500/9 px-4 py-2 text-[13px] font-semibold tracking-tight shadow-sm shadow-violet-500/20",
+              "transition-[transform,box-shadow,border-color] duration-200 hover:scale-[1.02] hover:border-violet-500/70 hover:shadow-md hover:shadow-violet-500/30",
+              "dark:border-violet-400/40 dark:from-violet-400/12 dark:via-fuchsia-400/9 dark:to-cyan-400/8 dark:shadow-violet-400/15 dark:hover:border-violet-400/65 dark:hover:shadow-violet-400/25",
+              "focus-visible:border-violet-500/80 focus-visible:ring-violet-500/35 dark:focus-visible:border-violet-400/70 dark:focus-visible:ring-violet-400/30"
+            )}
+          >
+            <span
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-violet-700 dark:bg-violet-400/18 dark:text-violet-200"
+              aria-hidden
+            >
+              <Mic className="size-3.5" />
+            </span>
+            <span className="flex flex-col items-start gap-0.5 leading-none">
+              <span className="inline-flex items-center gap-1">
+                <Sparkles className="size-3 text-fuchsia-600 dark:text-fuchsia-400" aria-hidden />
+                Speak with AI
+              </span>
+              <span className="text-[10px] font-normal text-muted-foreground">Voice fills the form</span>
+            </span>
+          </Button>
         </div>
-        <p className="text-[14px] text-muted-foreground">
-          Say &quot;Hey Friday&quot; to fill using AI.
-        </p>
       </div>
 
       <Dialog
         open={voiceDialogOpen}
         onOpenChange={(open) => {
-          if (!open && !parsing) setVoiceDialogOpen(false)
+          if (!open) {
+            if (parsingRef.current) {
+              abortParseRef.current?.()
+            }
+            if (!parseCloseIntentRef.current) {
+              voiceDismissedRef.current = true
+            }
+            parseCloseIntentRef.current = false
+            setVoiceDialogOpen(false)
+            setLiveTranscript("")
+          }
         }}
       >
         <DialogContent
           className="max-w-[min(100vw-2rem,28rem)] gap-3 sm:max-w-lg"
-          showCloseButton={!parsing}
+          showCloseButton
         >
           <DialogHeader>
             <DialogTitle>Hey Friday</DialogTitle>
@@ -295,17 +424,36 @@ export default function NewTaskClientPage() {
               {parsing ? "Updating the form…" : "Speak your task — pause when you’re done."}
             </DialogDescription>
           </DialogHeader>
-          <div
-            className="max-h-[min(40vh,220px)] min-h-[100px] overflow-auto rounded-lg border border-border/80 bg-muted/25 p-4 text-[15px] leading-relaxed"
-            aria-live="polite"
-          >
-            {parsing ? (
-              <p className="text-muted-foreground">Applying to the form…</p>
-            ) : nlp.trim() ? (
-              <p className="whitespace-pre-wrap text-foreground">{nlp}</p>
-            ) : (
-              <p className="text-muted-foreground">Say your task after the greeting…</p>
-            )}
+          <div className="flex max-h-[min(72vh,520px)] flex-col gap-3">
+            <div
+              className="min-h-[100px] max-h-[min(40vh,220px)] overflow-auto rounded-lg border border-border/80 bg-muted/25 p-4 text-[15px] leading-relaxed"
+              aria-live="polite"
+            >
+              {parsing ? (
+                <p className="text-muted-foreground">Applying to the form…</p>
+              ) : liveTranscript.trim() ? (
+                <p className="whitespace-pre-wrap text-foreground">{liveTranscript}</p>
+              ) : (
+                <p className="text-muted-foreground">Listening — your words will appear here.</p>
+              )}
+            </div>
+            {voiceHistory.length > 0 ? (
+              <div className="min-h-0 shrink-0 border-t border-border/80 pt-3 dark:border-white/10">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Earlier
+                </p>
+                <div className="max-h-[min(28vh,200px)] space-y-2 overflow-y-auto pr-1">
+                  {voiceHistory.map((item) => (
+                    <blockquote
+                      key={item.id}
+                      className="border-l-2 border-violet-500/40 py-1 pl-3 text-[13px] leading-snug text-muted-foreground dark:border-violet-400/35"
+                    >
+                      <span className="whitespace-pre-wrap">{item.text}</span>
+                    </blockquote>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
@@ -318,12 +466,21 @@ export default function NewTaskClientPage() {
               hideControls
               hideStatusStrip
               disabled={saving}
-              onWakeDetected={() => setVoiceDialogOpen(true)}
-              onEmptyCapture={() => setVoiceDialogOpen(false)}
-              onRegisterLoopStart={(start) => {
-                resumeHeyFridayRef.current = start
+              onWakeDetected={() => {
+                voiceDismissedRef.current = false
+                parseCloseIntentRef.current = false
+                setLiveTranscript("")
+                setVoiceDialogOpen(true)
               }}
-              onTranscript={setNlp}
+              onEmptyCapture={() => {
+                setLiveTranscript("")
+                setVoiceDialogOpen(false)
+              }}
+              onRegisterVoiceApi={(api) => {
+                resumeHeyFridayRef.current = api.start
+                startDirectCaptureRef.current = api.startDirectCapture
+              }}
+              onTranscript={setLiveTranscript}
               onStopWithText={(text) => {
                 void parseNlpFromText(text).finally(() => {
                   void resumeHeyFridayRef.current?.()

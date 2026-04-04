@@ -1,21 +1,17 @@
 "use client"
 
 import { useCallback, useRef, useState } from "react"
-import { Clock, MapPin, Trash2 } from "lucide-react"
+import { Calendar, Clock, MapPin, Trash2 } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { cn } from "@/lib/utils"
 import type { TaskView } from "@/components/task-card"
+import { categoryBadgeClass, priorityBadgeVariant } from "@/lib/task-badges"
+import { cn } from "@/lib/utils"
 
 const SWIPE_THRESHOLD_PX = 64
 const MAX_SWIPE_PX = 96
-
-const priorityTextClass: Record<string, string> = {
-  high: "font-medium text-red-600 dark:text-red-400",
-  medium: "font-medium text-foreground",
-  low: "font-medium text-muted-foreground",
-}
 
 function clampSwipe(dx: number) {
   return Math.max(-MAX_SWIPE_PX, Math.min(MAX_SWIPE_PX, dx))
@@ -116,7 +112,12 @@ export function TaskListRow({
   )
 
   return (
-    <li className={cn("relative overflow-hidden", className)}>
+    <li
+      className={cn(
+        "relative overflow-hidden rounded-xs border-2 border-border bg-background dark:border-white/10",
+        className
+      )}
+    >
       <div
         className="pointer-events-none absolute inset-0 flex"
         aria-hidden
@@ -148,9 +149,9 @@ export function TaskListRow({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-1 gap-3">
-            <div className="shrink-0 pt-0.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex shrink-0 items-center">
               {onComplete || onReopen ? (
                 <Checkbox
                   checked={done}
@@ -186,38 +187,33 @@ export function TaskListRow({
                 {task.description.trim()}
               </p>
             ) : null}
-            <p className="text-[13px] leading-snug text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-snug text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Clock className="size-3.5 shrink-0 opacity-70" aria-hidden />
                 {task.durationMinutes} min
               </span>
-              <span className="px-1.5 text-border" aria-hidden>
-                -
-              </span>
-              <span className="capitalize">{task.category}</span>
-              <span className="px-1.5 text-border" aria-hidden>
-                -
-              </span>
-              <span
-                className={cn(
-                  "capitalize",
-                  priorityTextClass[task.priority] ?? "font-medium text-foreground"
-                )}
+              {task.deadline ? (
+                <span className="inline-flex items-center gap-1 tabular-nums text-muted-foreground/90">
+                  <Calendar className="size-3.5 shrink-0 opacity-70" aria-hidden />
+                  Due {new Date(task.deadline).toLocaleString()}
+                </span>
+              ) : null}
+              <Badge
+                variant="outline"
+                className={cn(categoryBadgeClass(task.category), done && "opacity-70")}
+              >
+                {task.category}
+              </Badge>
+              <Badge
+                variant={priorityBadgeVariant(task.priority)}
+                className={cn("capitalize", done && "opacity-70")}
               >
                 {task.priority}
-              </span>
+              </Badge>
             </p>
-            {task.deadline ? (
-              <p className="text-[12px] tabular-nums text-muted-foreground/90">
-                Due {new Date(task.deadline).toLocaleString()}
-              </p>
-            ) : null}
             {task.location.name ? (
-              <p className="flex items-start gap-1.5 text-[13px] text-muted-foreground">
-                <MapPin
-                  className="mt-0.5 size-3.5 shrink-0 opacity-70"
-                  aria-hidden
-                />
+              <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                <MapPin className="size-3.5 shrink-0 opacity-70" aria-hidden />
                 <span className="min-w-0 wrap-break-word">{task.location.name}</span>
               </p>
             ) : null}
@@ -263,12 +259,7 @@ export function TaskList({
   className?: string
 }) {
   return (
-    <ul
-      className={cn(
-        "list-none overflow-hidden rounded-[var(--radius-xs)] border-2 border-border dark:border-white/10",
-        className
-      )}
-    >
+    <ul className={cn("list-none flex flex-col gap-3", className)}>
       {tasks.map((t) => (
         <TaskListRow
           key={t.id}

@@ -17,27 +17,30 @@ export function TaskVoiceHeyFriday({
   hideStatusStrip = false,
   onWakeDetected,
   onEmptyCapture,
-  onRegisterLoopStart,
+  onRegisterVoiceApi,
   onTranscript,
   onStopWithText,
 }: {
   disabled?: boolean
   /** Start listening for “Hey Friday” once when mounted and not disabled. */
   autoStart?: boolean
-  /** After a capture finishes with text, listen for “Hey Friday” again (see onRegisterLoopStart). */
+  /** After a capture finishes with text, listen for “Hey Friday” again (see onRegisterVoiceApi). */
   loopWakeAfterSession?: boolean
   hideControls?: boolean
   hideStatusStrip?: boolean
   onWakeDetected?: () => void
   /** Session ended with no speech to parse (e.g. silence after wake). */
   onEmptyCapture?: () => void
-  /** Receive `start` so you can call it after async work (e.g. parse) when looping. */
-  onRegisterLoopStart?: (start: () => Promise<void>) => void
+  /** Voice controls: `start` = listen for wake; `startDirectCapture` = skip wake and listen for task. */
+  onRegisterVoiceApi?: (api: {
+    start: () => Promise<void>
+    startDirectCapture: () => Promise<void>
+  }) => void
   onTranscript: (text: string) => void
   /** After you stop listening, receives full captured text (only if non-empty). */
   onStopWithText: (text: string) => void
 }) {
-  const { listening, status, start, stop, greetingText, speechDetected } =
+  const { listening, status, start, startDirectCapture, stop, greetingText, speechDetected } =
     useHeyFridayVoice({
     onTranscript,
     onWakeDetected,
@@ -47,12 +50,12 @@ export function TaskVoiceHeyFriday({
     },
     loopWakeAfterSession: loopWakeAfterSession || autoStart,
     /** Parent will call `start()` after async work (e.g. parse); skip hook’s immediate restart. */
-    registerLoopStart: Boolean(onRegisterLoopStart),
+    registerLoopStart: Boolean(onRegisterVoiceApi),
   })
 
   useEffect(() => {
-    onRegisterLoopStart?.(start)
-  }, [start, onRegisterLoopStart])
+    onRegisterVoiceApi?.({ start, startDirectCapture })
+  }, [start, startDirectCapture, onRegisterVoiceApi])
 
   const autoStartedRef = useRef(false)
   const stopRef = useRef(stop)
