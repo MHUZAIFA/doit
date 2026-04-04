@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server"
 import { jwtVerify } from "jose"
 import { COOKIE_NAME } from "@/lib/constants"
 
-const protectedPrefixes = ["/dashboard", "/tasks", "/schedule", "/map", "/chat"]
+const protectedPrefixes = ["/dashboard", "/tasks", "/schedule", "/map", "/chat", "/sleep"]
 
 function getSecret() {
   const s = process.env.AUTH_SECRET
@@ -56,5 +56,7 @@ export const config = {
     "/map/:path*",
     "/chat",
     "/chat/:path*",
+    "/sleep",
+    "/sleep/:path*",
   ],
 }

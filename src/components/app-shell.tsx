@@ -1,20 +1,19 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { LogOut, Power } from "lucide-react"
 
-import { SleepModeOverlay } from "@/components/sleep-mode-overlay"
 import { Button } from "@/components/ui/button"
-import { playWakeMusic, primeWakeAudioOnUserGesture } from "@/lib/wake-music"
+import { SLEEP_RETURN_TO_KEY } from "@/lib/constants"
+import { primeWakeAudioOnUserGesture } from "@/lib/wake-music"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { NotificationsPopover } from "@/components/notifications-popover"
 import { siteFooterScrollPadding } from "@/components/site-footer"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const [sleepMode, setSleepMode] = useState(false)
+  const pathname = usePathname()
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" })
@@ -24,14 +23,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-full flex-col">
-      <SleepModeOverlay
-        active={sleepMode}
-        onWake={() => {
-          setSleepMode(false)
-          playWakeMusic()
-        }}
-      />
-
       <header className="sticky top-0 z-40 bg-background">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
           <Link
@@ -51,7 +42,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               title="Sleep mode"
               onClick={async () => {
                 await primeWakeAudioOnUserGesture()
-                setSleepMode(true)
+                try {
+                  sessionStorage.setItem(SLEEP_RETURN_TO_KEY, pathname)
+                } catch {
+                  /* */
+                }
+                router.push("/sleep")
               }}
             >
               <Power className="size-[1.125rem]" aria-hidden />

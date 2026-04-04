@@ -15,9 +15,9 @@ export class WakeMusic {
     return `/music/${encodeURIComponent(WAKE_MUSIC_FILENAME)}`
   }
   /** First segment (0–1). */
-  static readonly initialVolume = 0.8
+  static readonly initialVolume = 1
   /** After {@link WakeMusic.rampAfterMs}, volume moves here for the rest of the track. */
-  static readonly laterVolume = 0.4
+  static readonly laterVolume = 0.2
   /** Milliseconds before lowering volume. */
   static readonly rampAfterMs = 15_000
 }

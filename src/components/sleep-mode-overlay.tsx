@@ -14,21 +14,21 @@ type Props = {
 
 /** Transient loud sound: high peak (hand clap) or sharp RMS spike vs smoothed noise floor. */
 function detectClap(
-  data: Uint8Array,
+  data: Float32Array,
   prevSmoothedRms: number,
-  opts: { minRms: number; peakThreshold: number; spikeRatio: number }
+  opts: { minRms: number; peakThreshold: number; spikeRatio: number; noiseFloor: number }
 ): { clap: boolean; rms: number } {
   let sum = 0
   let peak = 0
   for (let i = 0; i < data.length; i++) {
-    const x = (data[i]! - 128) / 128
+    const x = data[i]!
     sum += x * x
     const a = Math.abs(x)
     if (a > peak) peak = a
   }
   const rms = Math.sqrt(sum / data.length)
   const spike =
-    prevSmoothedRms > 0.012 &&
+    prevSmoothedRms > opts.noiseFloor &&
     rms > prevSmoothedRms * opts.spikeRatio &&
     rms >= opts.minRms
   const clap = peak >= opts.peakThreshold || spike
@@ -62,9 +62,9 @@ export function SleepModeOverlay({ active, onWake }: Props) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
           },
         })
       } catch {
@@ -82,29 +82,30 @@ export function SleepModeOverlay({ active, onWake }: Props) {
       await ctx.resume()
       const source = ctx.createMediaStreamSource(stream)
       const analyser = ctx.createAnalyser()
-      analyser.fftSize = 2048
+      analyser.fftSize = 1024
       analyser.smoothingTimeConstant = 0.2
       source.connect(analyser)
-      const data = new Uint8Array(analyser.fftSize)
+      const data = new Float32Array(analyser.fftSize)
       let smoothedRms = 0.03
       /** Previous frame had “clap” over threshold — used for rising-edge only. */
       let wasClapping = false
       /** Time of first clap in the current double-clap attempt. */
       let firstClapAt: number | null = null
       /** Min time between two *distinct* clap onsets (two hands). */
-      const minBetweenClapsMs = 280
+      const minBetweenClapsMs = 220
       /** Max time after first clap to complete the pair. */
-      const maxDoubleClapGapMs = 1800
+      const maxDoubleClapGapMs = 2000
 
       const tick = () => {
         if (cancelled) return
         const now = performance.now()
 
-        analyser.getByteTimeDomainData(data)
+        analyser.getFloatTimeDomainData(data)
         const { clap, rms } = detectClap(data, smoothedRms, {
-          minRms: 0.06,
-          peakThreshold: 0.38,
-          spikeRatio: 4,
+          minRms: 0.035,
+          peakThreshold: 0.22,
+          spikeRatio: 2.75,
+          noiseFloor: 0.006,
         })
         smoothedRms = smoothedRms * 0.9 + rms * 0.1
 
