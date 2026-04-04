@@ -3,7 +3,14 @@
 import { useCallback, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, MapPin, Mic, Sparkles, Timer } from "lucide-react"
+import {
+  ArrowLeft,
+  Loader2,
+  MapPin,
+  Mic,
+  Sparkles,
+  Timer,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -37,6 +44,17 @@ const PRIORITIES = [
   { value: "high" as const, label: "High" },
 ]
 
+const DURATION_PRESETS = [
+  { value: 15, label: "15 min" },
+  { value: 30, label: "30 min" },
+  { value: 45, label: "45 min" },
+  { value: 60, label: "1 hr" },
+  { value: 90, label: "1.5 hr" },
+  { value: 120, label: "2 hr" },
+] as const
+
+const MAX_DURATION_MINUTES = 24 * 60
+
 const VOICE_HISTORY_MAX = 20
 
 type VoiceHistoryItem = { id: string; text: string; at: number }
@@ -56,7 +74,7 @@ export default function NewTaskClientPage() {
   const [locationName, setLocationName] = useState("")
   const [lat, setLat] = useState("")
   const [lng, setLng] = useState("")
-  const [durationMinutes, setDurationMinutes] = useState(60)
+  const [durationMinutes, setDurationMinutes] = useState(15)
   const [deadline, setDeadline] = useState("")
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium")
 
@@ -76,7 +94,7 @@ export default function NewTaskClientPage() {
     setLocationName("")
     setLat("")
     setLng("")
-    setDurationMinutes(60)
+    setDurationMinutes(15)
     setDeadline("")
     setPriority("medium")
   }, [])
@@ -90,7 +108,7 @@ export default function NewTaskClientPage() {
         lng.trim() ||
         deadline.trim() ||
         category !== "other" ||
-        durationMinutes !== 60 ||
+        durationMinutes !== 15 ||
         priority !== "medium"
     )
   }, [
@@ -309,7 +327,7 @@ export default function NewTaskClientPage() {
           description: description || undefined,
           category,
           location,
-          durationMinutes,
+          durationMinutes: Number.isFinite(durationMinutes) ? durationMinutes : 15,
           deadline: deadline ? new Date(deadline).toISOString() : null,
           priority,
         }),
@@ -336,11 +354,7 @@ export default function NewTaskClientPage() {
       lngT &&
       !Number.isNaN(parseFloat(latT)) &&
       !Number.isNaN(parseFloat(lngT)))
-  const canSave =
-    title.trim().length > 0 &&
-    Number.isFinite(durationMinutes) &&
-    durationMinutes >= 15 &&
-    coordsValid
+  const canSave = title.trim().length > 0 && coordsValid
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-8">
@@ -415,45 +429,123 @@ export default function NewTaskClientPage() {
         }}
       >
         <DialogContent
-          className="max-w-[min(100vw-2rem,28rem)] gap-3 sm:max-w-lg"
+          className="max-w-[min(100vw-2rem,26rem)] gap-0 overflow-hidden p-0 sm:max-w-md"
           showCloseButton
         >
-          <DialogHeader>
-            <DialogTitle>Hey Friday</DialogTitle>
-            <DialogDescription className="text-[13px]">
-              {parsing ? "Updating the form…" : "Speak your task — pause when you’re done."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex max-h-[min(72vh,520px)] flex-col gap-3">
-            <div
-              className="min-h-[100px] max-h-[min(40vh,220px)] overflow-auto rounded-lg border border-border/80 bg-muted/25 p-4 text-[15px] leading-relaxed"
-              aria-live="polite"
-            >
-              {parsing ? (
-                <p className="text-muted-foreground">Applying to the form…</p>
-              ) : liveTranscript.trim() ? (
-                <p className="whitespace-pre-wrap text-foreground">{liveTranscript}</p>
-              ) : (
-                <p className="text-muted-foreground">Listening — your words will appear here.</p>
-              )}
+          <div className="bg-linear-to-br from-violet-500/10 via-fuchsia-500/5 to-transparent px-6 pb-5 pt-6 dark:from-violet-400/8 dark:via-fuchsia-400/4">
+            <div className="flex gap-4">
+              <div
+                className={cn(
+                  "flex size-11 shrink-0 items-center justify-center rounded-xl bg-background/70 dark:bg-background/50",
+                  !parsing && "animate-pulse"
+                )}
+                aria-hidden
+              >
+                <Mic className="size-5 text-violet-700 dark:text-violet-300" />
+              </div>
+              <DialogHeader className="min-w-0 flex-1 gap-2 space-y-0 text-left">
+                <div className="flex flex-wrap items-center gap-2">
+                  <DialogTitle className="text-[1.05rem] font-semibold tracking-tight">
+                    Voice assistant
+                  </DialogTitle>
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Hey Friday
+                  </span>
+                </div>
+                <DialogDescription className="text-[13px] leading-relaxed">
+                  {parsing
+                    ? "We’re sending what you said to the model and updating the form."
+                    : "Speak naturally — pause when you’re done. This window only shows what the microphone hears."}
+                </DialogDescription>
+              </DialogHeader>
             </div>
-            {voiceHistory.length > 0 ? (
-              <div className="min-h-0 shrink-0 border-t border-border/80 pt-3 dark:border-white/10">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Earlier
+          </div>
+
+          <div className="flex max-h-[min(72vh,520px)] flex-col">
+            <div className="bg-muted/25 px-6 py-3 dark:bg-muted/20">
+              <div className="flex min-w-0 items-center gap-2.5 text-[13px] leading-snug">
+                {parsing ? (
+                  <>
+                    <Loader2
+                      className="size-4 shrink-0 animate-spin text-violet-600 dark:text-violet-400"
+                      aria-hidden
+                    />
+                    <span className="text-foreground">Applying AI to the form…</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="relative flex size-2 shrink-0" aria-hidden>
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500/70 opacity-75" />
+                      <span className="relative inline-flex size-2 rounded-full bg-emerald-600 dark:bg-emerald-400" />
+                    </span>
+                    <span className="text-muted-foreground">
+                      {liveTranscript.trim()
+                        ? "Listening — keep talking or pause to finish"
+                        : "Mic on — start speaking"}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-5">
+              <div>
+                <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Live transcript
                 </p>
-                <div className="max-h-[min(28vh,200px)] space-y-2 overflow-y-auto pr-1">
-                  {voiceHistory.map((item) => (
-                    <blockquote
-                      key={item.id}
-                      className="border-l-2 border-violet-500/40 py-1 pl-3 text-[13px] leading-snug text-muted-foreground dark:border-violet-400/35"
-                    >
-                      <span className="whitespace-pre-wrap">{item.text}</span>
-                    </blockquote>
-                  ))}
+                <div
+                  role="log"
+                  aria-live="polite"
+                  aria-relevant="additions text"
+                  tabIndex={-1}
+                  className="min-h-[112px] max-h-[min(36vh,220px)] cursor-default overflow-y-auto pr-1 text-[15px] leading-relaxed text-foreground select-text"
+                >
+                  {parsing ? (
+                    <div className="flex items-start gap-3 text-muted-foreground">
+                      <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-violet-600 dark:text-violet-400" />
+                      <div className="space-y-1.5">
+                        <p className="font-medium text-foreground">Processing your words…</p>
+                        <p className="text-[13px] leading-relaxed">
+                          Parsing intent and merging into title, time, place, and priority.
+                        </p>
+                      </div>
+                    </div>
+                  ) : liveTranscript.trim() ? (
+                    <p className="whitespace-pre-wrap">{liveTranscript}</p>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Your speech appears here as text. This isn’t a typing field — use the form
+                      below after you close, or keep talking.
+                    </p>
+                  )}
                 </div>
               </div>
-            ) : null}
+
+              <p className="text-[12px] leading-relaxed text-muted-foreground">
+                <Sparkles className="mr-1.5 inline size-3.5 -translate-y-px text-fuchsia-600 opacity-80 dark:text-fuchsia-400" />
+                Close this window anytime to edit the task fields on the page.
+              </p>
+
+              {voiceHistory.length > 0 ? (
+                <div className="mt-2 space-y-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Earlier in this session
+                  </p>
+                  <div className="flex max-h-[min(24vh,168px)] flex-col gap-5 overflow-y-auto pr-1">
+                    {voiceHistory.map((item) => (
+                      <div
+                        key={item.id}
+                        className="min-w-0 border-l-2 border-violet-500/50 py-0.5 pl-4 dark:border-violet-400/45"
+                      >
+                        <p className="text-[13px] leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                          {item.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -519,8 +611,8 @@ export default function NewTaskClientPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,9rem)_minmax(0,8rem)_minmax(0,1fr)]">
+              <div className="min-w-0 space-y-1">
                 <Label htmlFor="field-category" className="text-[11px] text-muted-foreground">
                   Category
                 </Label>
@@ -534,7 +626,7 @@ export default function NewTaskClientPage() {
                   triggerClassName="h-11"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 <Label htmlFor="field-priority" className="text-[11px] text-muted-foreground">
                   Priority
                 </Label>
@@ -550,25 +642,7 @@ export default function NewTaskClientPage() {
                   triggerClassName="h-11"
                 />
               </div>
-              <div className="space-y-1">
-                <Label
-                  htmlFor="dur"
-                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
-                >
-                  <Timer className="size-3 opacity-70" aria-hidden />
-                  Minutes <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="dur"
-                  type="number"
-                  min={15}
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                  disabled={saving}
-                  className="h-11"
-                />
-              </div>
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 <Label htmlFor="deadline" className="text-[11px] text-muted-foreground">
                   Deadline
                 </Label>
@@ -580,6 +654,62 @@ export default function NewTaskClientPage() {
                   disabled={saving}
                   className="h-11 min-w-0"
                 />
+              </div>
+              <div className="space-y-2 sm:col-span-3">
+                <Label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Timer className="size-3 opacity-70" aria-hidden />
+                  Duration
+                </Label>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Optional — defaults to 15 minutes. Use presets or enter any length (15–
+                  {MAX_DURATION_MINUTES} min).
+                </p>
+                <div className="flex w-full min-w-0 flex-nowrap items-center gap-2.5 overflow-x-auto py-0.5">
+                  {DURATION_PRESETS.map((p) => {
+                    const selected = durationMinutes === p.value
+                    return (
+                      <Button
+                        key={p.value}
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        disabled={saving}
+                        className={cn(
+                          "h-7 min-w-14 shrink-0 px-2 text-sm transition-colors",
+                          selected &&
+                            "border-neutral-300 bg-white text-black dark:border-white dark:bg-white dark:text-black dark:hover:bg-white/90"
+                        )}
+                        onClick={() => setDurationMinutes(p.value)}
+                        aria-pressed={selected}
+                      >
+                        {p.label}
+                      </Button>
+                    )
+                  })}
+                  <Input
+                    id="dur-minutes"
+                    type="number"
+                    min={15}
+                    max={MAX_DURATION_MINUTES}
+                    value={durationMinutes}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      if (raw === "") return
+                      const n = Number(raw)
+                      if (!Number.isFinite(n)) return
+                      const clamped = Math.min(
+                        MAX_DURATION_MINUTES,
+                        Math.max(15, Math.round(n))
+                      )
+                      setDurationMinutes(clamped)
+                    }}
+                    disabled={saving}
+                    className="h-7 flex-1 basis-0 px-2 text-xs tabular-nums"
+                    aria-label={`Duration in minutes (${15}–${MAX_DURATION_MINUTES})`}
+                    placeholder="min"
+                  />
+                  <span className="text-xs text-muted-foreground">mins.</span>
+                </div>
               </div>
             </div>
           </div>

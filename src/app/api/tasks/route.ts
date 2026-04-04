@@ -23,7 +23,7 @@ const createSchema = z.object({
         .optional(),
     })
     .default({ name: "" }),
-  durationMinutes: z.number().int().min(15).max(24 * 60),
+  durationMinutes: z.number().int().min(15).max(24 * 60).optional(),
   deadline: z.union([z.iso.datetime(), z.null()]).optional(),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
   constraints: z.record(z.string(), z.any()).optional(),
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       name: body.location.name,
       coordinates: body.location.coordinates,
     },
-    durationMinutes: body.durationMinutes,
+    durationMinutes: body.durationMinutes ?? 15,
     deadline,
     priority: body.priority as TaskPriority,
     constraints: body.constraints,
