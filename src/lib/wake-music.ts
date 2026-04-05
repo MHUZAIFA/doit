@@ -34,6 +34,42 @@ let active: ActivePlayback | null = null
 /** Audio element primed during the Power-button click so playback works after clap wake. */
 let primedAudio: HTMLAudioElement | null = null
 
+const playbackListeners = new Set<() => void>()
+
+function notifyPlaybackListeners() {
+  playbackListeners.forEach((fn) => fn())
+}
+
+/** Subscribe to wake-music play/pause/end (navbar, etc.). */
+export function subscribeWakeMusicPlayback(onChange: () => void): () => void {
+  playbackListeners.add(onChange)
+  return () => playbackListeners.delete(onChange)
+}
+
+export function getWakeMusicNavbarState(): { visible: boolean; playing: boolean } {
+  if (!active) return { visible: false, playing: false }
+  const a = active.audio
+  if (a.ended) return { visible: false, playing: false }
+  return { visible: true, playing: !a.paused }
+}
+
+/** Pause the wake track if it is playing (navbar control). */
+export function pauseWakeMusic(): void {
+  if (!active) return
+  try {
+    active.audio.pause()
+  } catch {
+    /* */
+  }
+  notifyPlaybackListeners()
+}
+
+/** Resume after a navbar pause. */
+export function resumeWakeMusic(): void {
+  if (!active) return
+  void active.audio.play().then(() => notifyPlaybackListeners()).catch(() => notifyPlaybackListeners())
+}
+
 async function fetchWakeMusicMuted(): Promise<boolean> {
   try {
     const res = await fetch("/api/auth/me", { cache: "no-store", credentials: "same-origin" })
@@ -54,6 +90,7 @@ function stopActive() {
     /* */
   }
   active = null
+  notifyPlaybackListeners()
 }
 
 function waitCanPlay(audio: HTMLAudioElement): Promise<void> {
@@ -166,29 +203,42 @@ function playWakeMusicWithAudio(): void {
     if (active?.audio === audio) {
       clearTimeout(rampTimer)
       active = null
+      notifyPlaybackListeners()
     }
   }
 
   audio.onended = cleanup
   audio.onerror = () => {
     clearTimeout(rampTimer)
-    if (active?.audio === audio) active = null
+    if (active?.audio === audio) {
+      active = null
+      notifyPlaybackListeners()
+    }
     toast.error("Could not load wake music", {
       description: `Expected file at public/music/${WAKE_MUSIC_FILENAME}`,
     })
   }
 
+  const onPlayPause = () => notifyPlaybackListeners()
+  audio.addEventListener("play", onPlayPause)
+  audio.addEventListener("pause", onPlayPause)
+
   active = { audio, rampTimer }
+  notifyPlaybackListeners()
 
   const tryPlay = () => {
     void audio
       .play()
       .then(() => {
         schedulePostWakeBriefing(WakeMusic.rampAfterMs)
+        notifyPlaybackListeners()
       })
       .catch((err: unknown) => {
         clearTimeout(rampTimer)
-        if (active?.audio === audio) active = null
+        if (active?.audio === audio) {
+          active = null
+          notifyPlaybackListeners()
+        }
         const msg = err instanceof Error ? err.message : String(err)
         toast.error("Could not play wake music", {
           description:
@@ -207,7 +257,10 @@ function playWakeMusicWithAudio(): void {
       "error",
       () => {
         clearTimeout(rampTimer)
-        if (active?.audio === audio) active = null
+        if (active?.audio === audio) {
+          active = null
+          notifyPlaybackListeners()
+        }
       },
       { once: true }
     )

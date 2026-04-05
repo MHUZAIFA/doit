@@ -5,7 +5,7 @@ import { requireSessionUser } from "@/lib/api/auth-utils"
 import { COLLECTIONS } from "@/lib/constants"
 import { getDb } from "@/lib/db"
 import type { TaskDocument, UserDocument } from "@/lib/models"
-import { lifeSuccessReasonForCategory, lifeSuccessWeight } from "@/lib/life-success"
+import { lifeSuccessWeight } from "@/lib/life-success"
 import { serializeTask } from "@/lib/serialize"
 import { wakeNextTaskRecommendation } from "@/lib/services/ai"
 
@@ -30,8 +30,7 @@ export async function POST() {
 
   if (pending.length === 0) {
     return NextResponse.json({
-      recommendation:
-        "Your list is clear. Add something that matters for your health, growth, relationships, or work—those areas shape a successful life over time.",
+      recommendation: "No open tasks—you're caught up for now.",
     })
   }
 
@@ -42,21 +41,27 @@ export async function POST() {
   }
 
   const today = calendarTodayInTz(timeZone)
-  const block = pending
-    .map(
-      (t) =>
-        `- ${t.title} | category: ${t.category} | ${t.priority} priority | deadline: ${t.deadline ? t.deadline.slice(0, 10) : "none"}`
-    )
-    .join("\n")
+  const dueToday = pending.filter((t) => {
+    if (!t.deadline) return false
+    return deadlineCalendarDateInTz(t.deadline, timeZone) === today
+  })
+  const dueIds = new Set(dueToday.map((t) => t.id))
+  const otherOpen = pending.filter((t) => !dueIds.has(t.id))
+
+  const line = (t: TaskRow) =>
+    `- ${t.title} | ${t.category} | ${t.priority} priority | deadline: ${t.deadline ? t.deadline.slice(0, 10) : "none"}`
+  const blockToday = dueToday.map(line).join("\n")
+  const blockOther = otherOpen.map(line).join("\n")
 
   const prompt = `Today's date (YYYY-MM-DD): ${today}.
-The user wants to invest time in what matters for a successful life: health, growth, meaningful work, relationships, and stability—not just clearing random to-dos.
-Each line is one open task with its category (health, education, work, personal, errand, other).
 
-Open tasks:
-${block}
+Open tasks DUE TODAY (calendar deadline is today, ${dueToday.length} total):
+${blockToday || "(none)"}
 
-Pick the single best task to start next. Prefer categories that build long-term wellbeing and success (health, education, work, personal) when deadlines allow; prioritize urgent deadlines when they are imminent. In your answer, name that task and briefly connect it to life impact or urgency.`
+Other REMAINING open tasks (not due today—undated, future, or overdue, ${otherOpen.length} total):
+${blockOther || "(none)"}
+
+Pick one task to do next. Prefer the due-today list when it is non-empty; otherwise use the other open list. Answer only about these tasks—no general advice. Do not mention how many tasks have no deadline, how many are due another day, or criticize missing deadlines.`
 
   try {
     const recommendation = await wakeNextTaskRecommendation(prompt)
@@ -117,14 +122,14 @@ function ruleBasedRecommendation(pending: TaskRow[], timeZone: string): string {
   if (dueToday.length) {
     const sorted = [...dueToday].sort(sortByLifeSuccessThenPriorityThenDeadline)
     const t = sorted[0]!
-    return `Start with ${t.title} — it's due today; handling it now protects trust and reduces stress so you can invest in what matters next.`
+    return `Start with ${t.title} — it's due today.`
   }
 
   const sorted = [...pending].sort(sortByLifeSuccessThenPriorityThenDeadline)
   const t = sorted[0]!
-  const why = lifeSuccessReasonForCategory(t.category)
   if (t.deadline) {
-    return `Tackle ${t.title} next — this ${t.category} task supports ${why}. Your deadline also makes it timely.`
+    const d = t.deadline.slice(0, 10)
+    return `Next, tackle ${t.title} — deadline ${d}.`
   }
-  return `Start with ${t.title} — this ${t.category} task supports ${why}, not just busywork.`
+  return `Next, work on ${t.title} — still open on your list.`
 }

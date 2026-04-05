@@ -134,17 +134,11 @@ function buildTodayTasksSummary(tasks: TaskRow[]): string {
   }
 
   const dueToday: TaskRow[] = []
-  const noDeadline: TaskRow[] = []
-  const dueLater: TaskRow[] = []
 
   for (const t of pending) {
-    if (!t.deadline) {
-      noDeadline.push(t)
-      continue
-    }
+    if (!t.deadline) continue
     const local = localDateInputValue(new Date(t.deadline))
     if (local === today) dueToday.push(t)
-    else dueLater.push(t)
   }
 
   const parts: string[] = [`You have ${pending.length} pending task${pending.length === 1 ? "" : "s"}.`]
@@ -157,16 +151,6 @@ function buildTodayTasksSummary(tasks: TaskRow[]): string {
     )
   } else {
     parts.push("Nothing is due today.")
-  }
-
-  if (noDeadline.length > 0) {
-    parts.push(
-      `${noDeadline.length} open task${noDeadline.length === 1 ? " has" : "s have"} no deadline set.`
-    )
-  }
-
-  if (dueLater.length > 0) {
-    parts.push(`${dueLater.length} task${dueLater.length === 1 ? " is" : "s are"} due another day.`)
   }
 
   return parts.join(" ")

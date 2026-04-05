@@ -2,11 +2,18 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LogOut, Power, Settings } from "lucide-react"
+import { useEffect, useState } from "react"
+import { LogOut, Pause, Play, Power } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { SLEEP_RETURN_TO_KEY } from "@/lib/constants"
-import { primeWakeAudioOnUserGesture } from "@/lib/wake-music"
+import {
+  getWakeMusicNavbarState,
+  pauseWakeMusic,
+  primeWakeAudioOnUserGesture,
+  resumeWakeMusic,
+  subscribeWakeMusicPlayback,
+} from "@/lib/wake-music"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { NotificationsPopover } from "@/components/notifications-popover"
 import { siteFooterScrollPadding } from "@/components/site-footer"
@@ -14,6 +21,12 @@ import { siteFooterScrollPadding } from "@/components/site-footer"
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const [wakeMusic, setWakeMusic] = useState(getWakeMusicNavbarState)
+
+  useEffect(() => {
+    setWakeMusic(getWakeMusicNavbarState())
+    return subscribeWakeMusicPlayback(() => setWakeMusic(getWakeMusicNavbarState()))
+  }, [])
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" })
@@ -54,6 +67,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Power className="size-[1.125rem]" aria-hidden />
             </Button>
+            {wakeMusic.visible ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={wakeMusic.playing ? "Pause wake music" : "Resume wake music"}
+                title={wakeMusic.playing ? "Pause wake music" : "Resume wake music"}
+                onClick={() => {
+                  if (wakeMusic.playing) pauseWakeMusic()
+                  else resumeWakeMusic()
+                }}
+              >
+                {wakeMusic.playing ? (
+                  <Pause className="size-[1.125rem]" aria-hidden />
+                ) : (
+                  <Play className="size-[1.125rem]" aria-hidden />
+                )}
+              </Button>
+            ) : null}
             <NotificationsPopover />
             <ThemeToggle />
             <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={logout}>
