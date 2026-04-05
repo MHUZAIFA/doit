@@ -12,11 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-async function persistTheme(theme: "light" | "dark" | "system") {
+/** Syncs theme to the signed-in user (also used from Settings). */
+export async function persistUserTheme(theme: "light" | "dark" | "system") {
   try {
     await fetch("/api/users/preferences", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({ theme }),
     })
   } catch {
@@ -66,7 +68,7 @@ export function ThemeToggle() {
         <DropdownMenuItem
           onClick={async () => {
             setTheme("light")
-            await persistTheme("light")
+            await persistUserTheme("light")
           }}
         >
           <Sun className="mr-2 size-4" />
@@ -75,7 +77,7 @@ export function ThemeToggle() {
         <DropdownMenuItem
           onClick={async () => {
             setTheme("dark")
-            await persistTheme("dark")
+            await persistUserTheme("dark")
           }}
         >
           <Moon className="mr-2 size-4" />
@@ -84,7 +86,7 @@ export function ThemeToggle() {
         <DropdownMenuItem
           onClick={async () => {
             setTheme("system")
-            await persistTheme("system")
+            await persistUserTheme("system")
           }}
         >
           <Monitor className="mr-2 size-4" />

@@ -8,6 +8,10 @@ export type UserPreferences = {
   businessHoursEnd: string
   privacyMode: boolean
   timezone: string
+  /** Substring or full name from `speechSynthesis.getVoices()`; empty = browser default English. */
+  wakeVoiceNameIncludes: string
+  /** Spoken first when the post-wake briefing runs. */
+  wakeGreeting: string
 }
 
 export type UserGamification = {
@@ -102,6 +106,8 @@ export function defaultPreferences(): UserPreferences {
     businessHoursEnd: "17:00",
     privacyMode: false,
     timezone: "UTC",
+    wakeVoiceNameIncludes: "",
+    wakeGreeting: "Welcome back sir!",
   }
 }
 

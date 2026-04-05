@@ -9,7 +9,7 @@ export function UserThemeBootstrap() {
 
   useEffect(() => {
     let cancelled = false
-    fetch("/api/auth/me")
+    fetch("/api/auth/me", { cache: "no-store", credentials: "same-origin" })
       .then((r) => r.json())
       .then((data: { user?: { preferences?: { theme?: string } } }) => {
         if (cancelled) return

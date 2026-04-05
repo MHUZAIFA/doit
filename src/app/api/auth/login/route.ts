@@ -5,7 +5,7 @@ import { verifyPassword } from "@/lib/auth/password"
 import { COOKIE_NAME } from "@/lib/constants"
 import { getDb } from "@/lib/db"
 import { COLLECTIONS } from "@/lib/constants"
-import type { UserDocument } from "@/lib/models"
+import { defaultPreferences, type UserDocument } from "@/lib/models"
 import { sessionCookieOptions } from "@/lib/api/auth-utils"
 
 const bodySchema = z.object({
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       id: user._id.toString(),
       email: user.email,
       name: user.name,
-      preferences: user.preferences,
+      preferences: { ...defaultPreferences(), ...user.preferences },
       gamification: user.gamification,
     },
   })

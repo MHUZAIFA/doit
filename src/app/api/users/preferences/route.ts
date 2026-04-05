@@ -3,7 +3,7 @@ import { z } from "zod"
 import { requireSessionUser } from "@/lib/api/auth-utils"
 import { getDb } from "@/lib/db"
 import { COLLECTIONS } from "@/lib/constants"
-import type { ThemePreference, UserDocument } from "@/lib/models"
+import { defaultPreferences, type ThemePreference, type UserDocument } from "@/lib/models"
 
 const patchSchema = z.object({
   theme: z.enum(["light", "dark", "system"]).optional(),
@@ -11,6 +11,9 @@ const patchSchema = z.object({
   businessHoursEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   privacyMode: z.boolean().optional(),
   timezone: z.string().min(1).max(64).optional(),
+  /** `name|||lang` can be long on some systems */
+  wakeVoiceNameIncludes: z.string().max(512).optional(),
+  wakeGreeting: z.string().min(0).max(300).optional(),
 })
 
 export async function PATCH(request: Request) {
@@ -37,6 +40,9 @@ export async function PATCH(request: Request) {
   if (p.businessHoursEnd !== undefined) updates["preferences.businessHoursEnd"] = p.businessHoursEnd
   if (p.privacyMode !== undefined) updates["preferences.privacyMode"] = p.privacyMode
   if (p.timezone !== undefined) updates["preferences.timezone"] = p.timezone
+  if (p.wakeVoiceNameIncludes !== undefined)
+    updates["preferences.wakeVoiceNameIncludes"] = p.wakeVoiceNameIncludes
+  if (p.wakeGreeting !== undefined) updates["preferences.wakeGreeting"] = p.wakeGreeting
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No valid fields" }, { status: 400 })
@@ -53,5 +59,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 })
   }
 
-  return NextResponse.json({ preferences: user.preferences })
+  return NextResponse.json({
+    preferences: { ...defaultPreferences(), ...user.preferences },
+  })
 }

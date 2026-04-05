@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LogOut, Power } from "lucide-react"
+import { LogOut, Power, Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { SLEEP_RETURN_TO_KEY } from "@/lib/constants"
@@ -25,14 +25,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-40 bg-background">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
-          <Link
-            href="/dashboard"
-            className="text-[13px] font-semibold tracking-tight text-foreground hover:opacity-80"
-          >
-            Done.
-          </Link>
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <Link
+              href="/dashboard"
+              className="text-[13px] font-semibold tracking-tight text-foreground hover:opacity-80"
+            >
+              Done.
+            </Link>
+          </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="ghost"

@@ -3,6 +3,8 @@
  */
 import { toast } from "sonner"
 
+import { cancelScheduledPostWakeBriefing, schedulePostWakeBriefing } from "@/lib/wake-briefing"
+
 /** Exact filename under `public/music/` (spaces OK; URL is encoded). */
 const WAKE_MUSIC_FILENAME = "The Clash - Should I Stay or Should I Go Official Video.mp3"
 
@@ -18,8 +20,8 @@ export class WakeMusic {
   static readonly initialVolume = 1
   /** After {@link WakeMusic.rampAfterMs}, volume moves here for the rest of the track. */
   static readonly laterVolume = 0.2
-  /** Milliseconds before lowering volume. */
-  static readonly rampAfterMs = 15_000
+  /** Milliseconds before lowering volume (and when the post-wake voice briefing runs). */
+  static readonly rampAfterMs = 7_000
 }
 
 type ActivePlayback = {
@@ -33,6 +35,7 @@ let active: ActivePlayback | null = null
 let primedAudio: HTMLAudioElement | null = null
 
 function stopActive() {
+  cancelScheduledPostWakeBriefing()
   if (!active) return
   clearTimeout(active.rampTimer)
   try {
@@ -150,17 +153,22 @@ export function playWakeMusic(): void {
   active = { audio, rampTimer }
 
   const tryPlay = () => {
-    void audio.play().catch((err: unknown) => {
-      clearTimeout(rampTimer)
-      if (active?.audio === audio) active = null
-      const msg = err instanceof Error ? err.message : String(err)
-      toast.error("Could not play wake music", {
-        description:
-          msg.includes("NotAllowed") || msg.includes("user didn")
-            ? "Tap Wake up once, then try sleep again — or allow audio for this site."
-            : msg,
+    void audio
+      .play()
+      .then(() => {
+        schedulePostWakeBriefing(WakeMusic.rampAfterMs)
       })
-    })
+      .catch((err: unknown) => {
+        clearTimeout(rampTimer)
+        if (active?.audio === audio) active = null
+        const msg = err instanceof Error ? err.message : String(err)
+        toast.error("Could not play wake music", {
+          description:
+            msg.includes("NotAllowed") || msg.includes("user didn")
+              ? "Tap Wake up once, then try sleep again — or allow audio for this site."
+              : msg,
+        })
+      })
   }
 
   if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {

@@ -2,15 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { CalendarDays, ListTodo, MapPin, MessageSquare, Plus } from "lucide-react"
+import { CalendarDays, ListTodo, MapPin, MessageSquare, Plus, Settings } from "lucide-react"
 import { toast } from "sonner"
 
 import { type TaskView } from "@/components/task-card"
 import { TaskList } from "@/components/task-list-row"
 import { ScheduleTimeline, type TimelineBlock } from "@/components/timeline"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { localDateInputValue } from "@/lib/date"
 import { cn } from "@/lib/utils"
@@ -32,7 +30,6 @@ function formatDashboardDate(isoDate: string) {
 type Me = {
   user: {
     name: string
-    preferences: { privacyMode: boolean }
     gamification: { streak: number; productivityScore: number; tasksCompleted: number }
   } | null
 }
@@ -60,14 +57,15 @@ export default function DashboardPage() {
   const [insights, setInsights] = useState<InsightsPayload | null>(null)
   const [insightsFailed, setInsightsFailed] = useState(false)
   const [insightsLoaded, setInsightsLoaded] = useState(false)
-  const [privacyLoading, setPrivacyLoading] = useState(false)
 
   const today = useMemo(() => localDateInputValue(), [])
   const todayLabel = useMemo(() => formatDashboardDate(today), [today])
 
   const load = useCallback(async () => {
     const [meR, tasksR, schR, insRes] = await Promise.all([
-      fetch("/api/auth/me").then((r) => r.json() as Promise<Me>),
+      fetch("/api/auth/me", { cache: "no-store", credentials: "same-origin" }).then(
+        (r) => r.json() as Promise<Me>
+      ),
       fetch("/api/tasks").then((r) => r.json() as Promise<{ tasks: TaskView[] }>),
       fetch(`/api/schedules?date=${today}`).then((r) => r.json() as Promise<ScheduleRes>),
       fetch("/api/ai/insights").then(async (r) => {
@@ -154,30 +152,13 @@ export default function DashboardPage() {
     return { activeTasks: active, completedTasks: done }
   }, [tasks])
 
-  async function togglePrivacy(checked: boolean) {
-    setPrivacyLoading(true)
-    try {
-      const res = await fetch("/api/users/preferences", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ privacyMode: checked }),
-      })
-      if (!res.ok) throw new Error()
-      toast.success(checked ? "Privacy mode on" : "Privacy mode off")
-      load()
-    } catch {
-      toast.error("Could not update privacy")
-    } finally {
-      setPrivacyLoading(false)
-    }
-  }
-
   const quickLinks = [
     { href: "/tasks/new", label: "New task", icon: Plus },
     { href: "/tasks", label: "All tasks", icon: ListTodo },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/map", label: "Map", icon: MapPin },
     { href: "/chat", label: "Chat", icon: MessageSquare },
+    { href: "/settings", label: "Settings", icon: Settings },
   ] as const
 
   return (
@@ -208,7 +189,7 @@ export default function DashboardPage() {
         </div>
 
         <nav
-          className="flex flex-wrap gap-x-1 gap-y-2 border-b border-border pb-3 dark:border-white/10"
+          className="flex flex-wrap gap-x-1 gap-y-2 border-b border-border pb-3 pt-5 dark:border-white/10"
           aria-label="Quick navigation"
         >
           {quickLinks.map(({ href, label, icon: Icon }) => (
@@ -246,18 +227,6 @@ export default function DashboardPage() {
           </div>
         </section>
       ) : null}
-
-      <section className="flex flex-wrap items-center gap-3">
-        <Checkbox
-          id="privacy"
-          checked={Boolean(me?.preferences.privacyMode)}
-          disabled={privacyLoading || !me}
-          onCheckedChange={(v) => togglePrivacy(v === true)}
-        />
-        <Label htmlFor="privacy" className="text-sm font-normal leading-snug text-muted-foreground">
-          Privacy mode — skip external AI; encrypt titles when an encryption key is set.
-        </Label>
-      </section>
 
       <section className="grid gap-6 lg:grid-cols-2 lg:gap-8">
         <ScheduleTimeline blocks={blocks} />

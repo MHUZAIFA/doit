@@ -3,7 +3,7 @@ import { ObjectId } from "mongodb"
 import { getSession } from "@/lib/auth/session"
 import { getDb } from "@/lib/db"
 import { COLLECTIONS } from "@/lib/constants"
-import type { UserDocument } from "@/lib/models"
+import { defaultPreferences, type UserDocument } from "@/lib/models"
 
 export async function GET() {
   const session = await getSession()
@@ -24,7 +24,7 @@ export async function GET() {
         id: user._id.toString(),
         email: user.email,
         name: user.name,
-        preferences: user.preferences,
+        preferences: { ...defaultPreferences(), ...user.preferences },
         gamification: user.gamification,
       },
     })
