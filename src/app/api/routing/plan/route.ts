@@ -10,7 +10,10 @@ import {
   fetchElementTags,
   fetchOpeningHoursNear,
 } from "@/lib/services/overpass"
-import { getUtcEndOfTodayInTimeZone } from "@/lib/today-bounds"
+import {
+  getUtcBoundsForCalendarDateInTimeZone,
+  getUtcEndOfTodayInTimeZone,
+} from "@/lib/today-bounds"
 import { ObjectId } from "mongodb"
 import {
   lngLatWaypointsToLeaflet,
@@ -20,6 +23,8 @@ import {
 
 const bodySchema = z.object({
   taskIds: z.array(z.string()).optional(),
+  /** Calendar day YYYY-MM-DD in the user's timezone — limits tasks by deadline (unless taskIds sent). */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   startLat: z.number().gte(-90).lte(90).optional(),
   startLng: z.number().gte(-180).lte(180).optional(),
 })
@@ -87,26 +92,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 })
   }
 
-  const { taskIds, startLat, startLng } = parsed.data
+  const { taskIds, date, startLat, startLng } = parsed.data
   const db = await getDb()
 
   const user = await db.collection<UserDocument>(COLLECTIONS.users).findOne({
     _id: auth.userId,
   })
   const tz = user?.preferences?.timezone ?? "UTC"
-  const endOfTodayUtc = getUtcEndOfTodayInTimeZone(tz)
 
   const filter: Record<string, unknown> = {
     userId: auth.userId,
     status: { $nin: ["cancelled", "completed"] as const },
-    $or: [
-      { deadline: { $lte: endOfTodayUtc } },
-      { deadline: null },
-    ],
   }
+
   if (taskIds?.length) {
     const ids = taskIds.map((id) => new ObjectId(id))
     filter._id = { $in: ids }
+  } else if (date) {
+    const bounds = getUtcBoundsForCalendarDateInTimeZone(tz, date)
+    if (!bounds) {
+      return NextResponse.json({ error: "Invalid date" }, { status: 400 })
+    }
+    /** Only tasks due on that calendar day (undated tasks need a schedule for that day). */
+    filter.deadline = { $gte: bounds.start, $lte: bounds.end }
+  } else {
+    const endOfTodayUtc = getUtcEndOfTodayInTimeZone(tz)
+    filter.$or = [
+      { deadline: { $lte: endOfTodayUtc } },
+      { deadline: null },
+    ]
   }
 
   const docs = await db
@@ -166,7 +180,14 @@ export async function POST(request: Request) {
     })
   }
 
-  enriched.sort(compareVisit)
+  if (taskIds?.length) {
+    const orderMap = new Map(taskIds.map((id, i) => [id, i]))
+    enriched.sort(
+      (a, b) => (orderMap.get(a.taskId) ?? 1e9) - (orderMap.get(b.taskId) ?? 1e9)
+    )
+  } else {
+    enriched.sort(compareVisit)
+  }
 
   const closed = enriched.filter((p) => p.hoursStatus === "closed")
   const forRouting = enriched
@@ -178,8 +199,14 @@ export async function POST(request: Request) {
   const hasOrs = Boolean(process.env.OPENROUTESERVICE_API_KEY?.trim())
 
   if (forRouting.length === 0) {
-    routingNote =
-      "No matching open tasks with a place name or saved location (due by end of today, earlier, or no deadline). Future deadlines are excluded."
+    if (taskIds?.length) {
+      routingNote =
+        "No stops to show — scheduled tasks may be completed, missing a place or coordinates, or could not be geocoded."
+    } else {
+      routingNote = date
+        ? `No open tasks due on ${date} with a mappable place. Generate a schedule for that day to route tasks without deadlines.`
+        : "No matching open tasks with a place name or saved location (due by end of today, earlier, or no deadline). Future deadlines are excluded."
+    }
   } else {
     const useStart =
       typeof startLat === "number" &&
@@ -192,7 +219,9 @@ export async function POST(request: Request) {
 
     if (!canMatrix) {
       routingNote =
-        "Add another stop or set your start on the map to draw a route (tasks without a deadline are included at the end of the visit list)."
+        date && !taskIds?.length
+          ? "Add another stop or set your start on the map to draw a route."
+          : "Add another stop or set your start on the map to draw a route (tasks without a deadline are included at the end of the visit list)."
     } else {
       const matrixCoords: LngLat[] = useStart
         ? [[startLng, startLat], ...forRouting.map((p) => [p.lng, p.lat] as LngLat)]

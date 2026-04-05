@@ -79,6 +79,8 @@ export type ScheduleDocument = {
   date: string
   scheduleOptions: ScheduleOption[]
   alerts: string[]
+  /** Short AI tradeoff summary; omitted when privacy mode or unavailable */
+  aiSummary?: string | null
   createdAt: Date
   updatedAt: Date
 }

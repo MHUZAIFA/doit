@@ -70,9 +70,20 @@ function relativeTime(iso: string) {
   }
 }
 
+const triggerClass = (open: boolean) =>
+  cn(
+    "relative inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-xs)] border-0 bg-background transition-colors hover:bg-muted",
+    open && "bg-muted"
+  )
+
 export function NotificationsPopover() {
   const [items, setItems] = useState<NotificationRow[]>([])
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     fetch("/api/notifications")
@@ -85,24 +96,31 @@ export function NotificationsPopover() {
 
   const unread = useMemo(() => items.filter((n) => !n.read).length, [items])
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        className={cn(
-          "relative inline-flex size-8 items-center justify-center rounded-[var(--radius-xs)] border border-border bg-background transition-colors hover:bg-muted",
-          open && "bg-muted"
-        )}
+  if (!mounted) {
+    return (
+      <button
+        type="button"
+        disabled
+        className={triggerClass(false)}
         aria-label="Notifications"
       >
-        <Bell className="size-4" />
-        {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex min-w-4 px-0.5 h-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold tabular-nums text-white shadow-sm">
+        <Bell className="size-4 shrink-0" aria-hidden />
+      </button>
+    )
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className={triggerClass(open)} aria-label="Notifications">
+        <Bell className="size-4 shrink-0" aria-hidden />
+        {unread > 0 ? (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-0.5 text-[10px] font-semibold tabular-nums text-white shadow-sm">
             {unread > 9 ? "9+" : unread}
           </span>
-        )}
+        ) : null}
       </PopoverTrigger>
       <PopoverContent
-        className="w-[min(calc(100vw-2rem),22rem)] gap-0 overflow-hidden p-0 shadow-lg ring-1 ring-border/60"
+        className="w-[min(calc(100vw-2rem),22rem)] gap-0 overflow-hidden p-0 shadow-lg ring-1"
         align="end"
       >
         <PopoverHeader className="border-b border-border/80 bg-muted/30 px-4 py-3">

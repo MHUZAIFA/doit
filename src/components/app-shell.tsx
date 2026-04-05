@@ -42,7 +42,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <NotificationsPopover />
             <ThemeToggle />
             {wakeMusic.visible ? (
               <Button
@@ -58,12 +57,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 }}
               >
                 {wakeMusic.playing ? (
-                  <Pause className="size-[1.125rem]" aria-hidden />
+                  <Pause className="size-4 shrink-0" aria-hidden />
                 ) : (
-                  <Play className="size-[1.125rem]" aria-hidden />
+                  <Play className="size-4 shrink-0" aria-hidden />
                 )}
               </Button>
             ) : null}
+            <NotificationsPopover />
             <Button
               type="button"
               variant="ghost"
@@ -81,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 router.push("/sleep")
               }}
             >
-              <Power className="size-[1.125rem]" aria-hidden />
+              <Power className="size-4 shrink-0" aria-hidden />
             </Button>
           </div>
         </div>

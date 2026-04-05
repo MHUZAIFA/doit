@@ -46,7 +46,7 @@ export function DirectionsRoutePanel({ orderedTaskIds, places, start, className 
       )}
     >
       {/* Panel header — similar to Maps “Directions” strip */}
-      <div className="flex items-center gap-3 border-b border-border/80 bg-muted/40 py-3 dark:bg-muted/25">
+      <div className="flex items-center gap-3 bg-muted/40 py-3 dark:bg-muted/25">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
           <Navigation className="size-5" aria-hidden />
         </div>

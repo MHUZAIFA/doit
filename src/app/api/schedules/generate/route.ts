@@ -8,6 +8,7 @@ import { buildScheduleOptions } from "@/lib/services/scheduling"
 import { buildTaskTravelMatrix } from "@/lib/travel-matrix"
 import { fetchWeatherForCoords } from "@/lib/services/weather"
 import { summarizeSchedulingContext } from "@/lib/services/ai"
+import { scheduleTaskIdToString } from "@/lib/schedule-task-id"
 
 const bodySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -66,25 +67,6 @@ export async function POST(request: Request) {
     weather
   )
 
-  const now = new Date()
-  const scheduleDoc: Omit<ScheduleDocument, "_id"> = {
-    userId: auth.userId,
-    date,
-    scheduleOptions: options,
-    alerts,
-    createdAt: now,
-    updatedAt: now,
-  }
-
-  await db.collection<ScheduleDocument>(COLLECTIONS.schedules).deleteMany({
-    userId: auth.userId,
-    date,
-  })
-
-  const { insertedId } = await db
-    .collection<ScheduleDocument>(COLLECTIONS.schedules)
-    .insertOne(scheduleDoc as ScheduleDocument)
-
   let aiSummary: string | null = null
   if (!user.preferences.privacyMode) {
     const taskTitles = tasks.slice(0, 12).map((t) => t.title).join(", ")
@@ -98,6 +80,26 @@ export async function POST(request: Request) {
     )
   }
 
+  const now = new Date()
+  const scheduleDoc: Omit<ScheduleDocument, "_id"> = {
+    userId: auth.userId,
+    date,
+    scheduleOptions: options,
+    alerts,
+    aiSummary,
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await db.collection<ScheduleDocument>(COLLECTIONS.schedules).deleteMany({
+    userId: auth.userId,
+    date,
+  })
+
+  const { insertedId } = await db
+    .collection<ScheduleDocument>(COLLECTIONS.schedules)
+    .insertOne(scheduleDoc as ScheduleDocument)
+
   if (options.length === 0 && alerts.length > 0) {
     await db.collection(COLLECTIONS.notifications).insertOne({
       userId: auth.userId,
@@ -109,11 +111,19 @@ export async function POST(request: Request) {
     })
   }
 
+  const scheduleOptions = options.map((opt) => ({
+    ...opt,
+    tasks: opt.tasks.map((slot) => ({
+      ...slot,
+      taskId: scheduleTaskIdToString(slot.taskId as unknown),
+    })),
+  }))
+
   return NextResponse.json({
     schedule: {
       id: insertedId.toString(),
       date,
-      scheduleOptions: options,
+      scheduleOptions,
       alerts,
       aiSummary,
     },

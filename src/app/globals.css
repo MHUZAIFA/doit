@@ -80,6 +80,18 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+@layer base {
+  /* Match common UX: links and actionable controls show a pointer. */
+  a[href],
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]):not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled),
+  input[type="reset"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* Leaflet ships gray #ddd behind tiles; it hides subtle borders and clashes with dark mode. */
 .leaflet-container {
   background: var(--background) !important;

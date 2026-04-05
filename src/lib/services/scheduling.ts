@@ -4,6 +4,8 @@ import { weatherBlocksOutdoorTasks, type WeatherSnapshot } from "@/lib/services/
 
 type InternalTask = {
   id: string
+  /** Display label for user-facing alerts — never use {@link InternalTask.id} in copy */
+  label: string
   durationMinutes: number
   deadline: Date | null
   priorityWeight: number
@@ -31,11 +33,17 @@ function priorityWeight(p: TaskDocument["priority"]): number {
   return 1
 }
 
+function taskLabelFromDoc(t: TaskDocument): string {
+  const s = (t.title ?? "").trim()
+  return s || "Untitled task"
+}
+
 function mapTasks(docs: TaskDocument[]): InternalTask[] {
   return docs
     .filter((t) => t.status !== "completed" && t.status !== "cancelled")
     .map((t) => ({
       id: t._id.toString(),
+      label: taskLabelFromDoc(t),
       durationMinutes: t.durationMinutes,
       deadline: t.deadline,
       priorityWeight: priorityWeight(t.priority),
@@ -59,7 +67,7 @@ function tryPack(
 
   for (const t of ordered) {
     if (t.outdoorHint && weather && weatherBlocksOutdoorTasks(weather)) {
-      alerts.push(`Weather may affect outdoor task: ${t.id}`)
+      alerts.push(`Weather may affect: ${t.label}`)
       score -= 5
     }
 
@@ -73,7 +81,7 @@ function tryPack(
     }
 
     if (t.deadline && end > t.deadline.getTime()) {
-      alerts.push(`Task ${t.id} may miss deadline`)
+      alerts.push(`${t.label} may miss its deadline`)
       score -= 15
     }
 
@@ -125,7 +133,7 @@ export function buildScheduleOptions(
   for (const t of internal) {
     if (t.deadline && t.deadline.getTime() < dayStart.getTime()) {
       globalAlerts.push(
-        `Task ${t.id} has a deadline before business hours on the selected day.`
+        `${t.label} has a deadline before business hours on the selected day.`
       )
     }
   }

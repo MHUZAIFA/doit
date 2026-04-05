@@ -48,7 +48,7 @@ export function ThemeToggle() {
       <button
         type="button"
         disabled
-        className={buttonVariants({ variant: "outline", size: "icon", className: "size-8" })}
+        className={buttonVariants({ variant: "outline", size: "icon", className: "size-8 border-0" })}
         aria-label="Theme"
       >
         <Sun className="size-4" />
@@ -59,7 +59,7 @@ export function ThemeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className={buttonVariants({ variant: "outline", size: "icon", className: "size-8" })}
+        className={buttonVariants({ variant: "outline", size: "icon", className: "size-8 border-0" })}
         aria-label="Toggle theme"
       >
         {icon}

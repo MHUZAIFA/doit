@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
+import { ObjectId } from "mongodb"
 import { requireSessionUser } from "@/lib/api/auth-utils"
 import { getDb } from "@/lib/db"
 import { COLLECTIONS } from "@/lib/constants"
 import type { ScheduleDocument } from "@/lib/models"
+import { scheduleTaskIdToString } from "@/lib/schedule-task-id"
 
 export async function GET(request: Request) {
   const auth = await requireSessionUser()
@@ -24,12 +26,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ schedule: null })
   }
 
+  const scheduleOptions = doc.scheduleOptions.map((opt) => ({
+    ...opt,
+    tasks: opt.tasks.map((slot) => {
+      const raw = slot.taskId as unknown
+      const taskId = raw instanceof ObjectId ? raw.toString() : scheduleTaskIdToString(raw)
+      return { ...slot, taskId }
+    }),
+  }))
+
   return NextResponse.json({
     schedule: {
       id: doc._id.toString(),
       date: doc.date,
-      scheduleOptions: doc.scheduleOptions,
+      scheduleOptions,
       alerts: doc.alerts,
+      aiSummary: doc.aiSummary ?? null,
       updatedAt: doc.updatedAt.toISOString(),
     },
   })

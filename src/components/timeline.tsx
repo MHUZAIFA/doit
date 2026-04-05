@@ -18,10 +18,16 @@ export function ScheduleTimeline({
   blocks,
   dayStartHour = 7,
   dayEndHour = 21,
+  title = "Today's plan",
+  description = "Top schedule option for this day. Generate more on the schedule page.",
+  emptyMessage = "No timed blocks yet. Generate a schedule for today to see it here.",
 }: {
   blocks: TimelineBlock[]
   dayStartHour?: number
   dayEndHour?: number
+  title?: string
+  description?: string
+  emptyMessage?: string
 }) {
   const startMin = dayStartHour * 60
   const endMin = dayEndHour * 60
@@ -30,14 +36,12 @@ export function ScheduleTimeline({
   return (
     <div className="rounded-[var(--radius-xs)] border-2 border-border bg-card p-4 dark:border-white/10">
       <div className="mb-1 flex items-baseline justify-between gap-2">
-        <h2 className="text-base font-medium tracking-tight">Today&apos;s plan</h2>
+        <h2 className="text-base font-medium tracking-tight">{title}</h2>
         <span className="text-[11px] text-muted-foreground tabular-nums">
           {dayStartHour}:00–{dayEndHour}:00
         </span>
       </div>
-      <p className="mb-3 text-[13px] text-muted-foreground">
-        Top schedule option for this day. Generate more on the schedule page.
-      </p>
+      <p className="mb-3 text-[13px] text-muted-foreground">{description}</p>
       <div className="relative h-52 overflow-hidden rounded-[var(--radius-xs)] bg-muted/30 dark:bg-muted/20">
         <div className="absolute inset-0 flex flex-col justify-between py-2 pl-12 pr-2">
           {Array.from({ length: Math.min(5, dayEndHour - dayStartHour + 1) }).map((_, i) => {
@@ -52,7 +56,7 @@ export function ScheduleTimeline({
         </div>
         {blocks.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-muted-foreground">
-            No timed blocks yet. Generate a schedule for today to see it here.
+            {emptyMessage}
           </div>
         ) : null}
         {blocks.map((b) => {

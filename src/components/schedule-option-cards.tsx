@@ -1,10 +1,7 @@
 "use client"
 
-import { Sparkles } from "lucide-react"
-
+import { scheduleTaskIdToString } from "@/lib/schedule-task-id"
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export type ScheduleOptionView = {
   optionId: string
@@ -20,52 +17,43 @@ export function ScheduleOptionCards({
   taskTitles: Record<string, string>
 }) {
   if (options.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No schedule options yet. Generate a schedule from the button above.
-      </p>
-    )
+    return <p className="text-sm text-muted-foreground">No plan for this day. Choose a date and generate.</p>
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-6 md:grid-cols-3">
       {options.map((opt, idx) => (
-        <Card
+        <div
           key={opt.optionId}
-          className={cn(idx === 0 && "ring-2 ring-primary/30")}
-          size="sm"
+          className={cn(
+            "border-t border-border pt-4 first:border-t-0 first:pt-0 md:border-t-0 md:pt-0 md:border-l md:pl-6 md:first:border-l-0 md:first:pl-0",
+            idx === 0 && "md:pr-2"
+          )}
         >
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-semibold">Option {idx + 1}</CardTitle>
-            <Badge variant="secondary" className="gap-1">
-              <Sparkles className="size-3" />
-              {Math.round(opt.score)}
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-2 text-xs">
-            {opt.tasks.map((slot) => (
-              <div
-                key={`${opt.optionId}-${slot.taskId}-${slot.startTime}`}
-                className="rounded-md border bg-muted/30 px-2 py-1.5"
-              >
-                <div className="font-medium text-foreground">
-                  {taskTitles[slot.taskId] ?? slot.taskId}
-                </div>
-                <div className="text-muted-foreground">
-                  {new Date(slot.startTime).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  –{" "}
-                  {new Date(slot.endTime).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+          <div className="mb-3 flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-medium text-foreground">
+              {idx === 0 ? "Best fit" : `Option ${idx + 1}`}
+            </h2>
+            <span className="tabular-nums text-xs text-muted-foreground">{Math.round(opt.score)}</span>
+          </div>
+          <ul className="space-y-3 text-sm">
+            {opt.tasks.map((slot) => {
+              const taskId = scheduleTaskIdToString(slot.taskId as unknown)
+              const start = new Date(slot.startTime)
+              const end = new Date(slot.endTime)
+              const label = (taskId && taskTitles[taskId]) || "Task"
+              return (
+                <li key={`${opt.optionId}-${taskId || slot.startTime}-${slot.startTime}`}>
+                  <div className="font-medium leading-snug text-foreground">{label}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                    {start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} –{" "}
+                    {end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       ))}
     </div>
   )
