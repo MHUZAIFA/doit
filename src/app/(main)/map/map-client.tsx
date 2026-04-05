@@ -211,7 +211,7 @@ export function MapClient() {
             key={selectedDate}
             className={cn(
               OSM_ROUTING_MAP_FRAME_CLASS,
-              "min-h-[min(280px,42vh)] h-[min(380px,52vh)] w-full lg:min-h-[min(440px,40vh)] lg:h-[min(580px,calc(100vh-10rem))]"
+              "min-h-[min(280px,42vh)] h-[min(380px,52vh)] w-full lg:min-h-[min(440px,40vh)] lg:h-[calc(100vh-16rem)]"
             )}
             places={mapPlaces}
             routeLine={plan?.routeLine ?? null}
