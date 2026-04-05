@@ -73,7 +73,7 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between align-center">
         <div className="space-y-2">
           <Link
             href="/dashboard"

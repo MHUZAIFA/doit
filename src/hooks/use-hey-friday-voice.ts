@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import { ASSISTANT_GREETING, ensureVoicesLoaded } from "@/lib/assistant-tts-voice"
 import {
-  ASSISTANT_GREETING,
-  applyJarvisSpeechStyle,
-  ensureVoicesLoaded,
-  pickJarvisLikeVoice,
-} from "@/lib/assistant-tts-voice"
+  fetchWakeSpeechUserPrefs,
+  pickWakeVoice,
+  WAKE_SPEECH_PITCH,
+  WAKE_SPEECH_RATE,
+} from "@/lib/wake-speech-voice"
 import {
   ensureMicrophoneAccess,
   isVoiceContextSupported,
@@ -105,10 +106,13 @@ function speakHowCanIHelp(onDone: () => void) {
   }
   window.speechSynthesis.cancel()
   void (async () => {
-    const voices = await ensureVoicesLoaded()
-    const voice = pickJarvisLikeVoice(voices)
+    const [prefs] = await Promise.all([fetchWakeSpeechUserPrefs(), ensureVoicesLoaded()])
     const u = new SpeechSynthesisUtterance(ASSISTANT_GREETING)
-    applyJarvisSpeechStyle(u, voice)
+    u.lang = "en-US"
+    u.rate = WAKE_SPEECH_RATE
+    u.pitch = WAKE_SPEECH_PITCH
+    const voice = pickWakeVoice(prefs.voice)
+    if (voice) u.voice = voice
     u.onend = () => onDone()
     u.onerror = () => onDone()
     window.speechSynthesis.speak(u)

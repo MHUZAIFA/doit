@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Monitor, Moon, Sun } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, LogOut, Monitor, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
 import { WakeVoiceSettings } from "@/components/wake-voice-settings"
 import { persistUserTheme } from "@/components/theme-toggle"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -32,6 +33,7 @@ type Me = {
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const [me, setMe] = useState<Me["user"]>(null)
   const [privacyLoading, setPrivacyLoading] = useState(false)
   const { theme, setTheme } = useTheme()
@@ -74,6 +76,12 @@ export default function SettingsPage() {
     const v = value as "light" | "dark" | "system"
     setTheme(v)
     await persistUserTheme(v)
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" })
+    router.push("/login")
+    router.refresh()
   }
 
   return (
@@ -171,6 +179,22 @@ export default function SettingsPage() {
       ) : (
         <p className="text-sm text-muted-foreground">Loading preferences…</p>
       )}
+
+      <Card
+        size="sm"
+        className="rounded-[var(--radius-xs)] border-2 border-border ring-0 dark:border-white/10"
+      >
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium">Account</CardTitle>
+          <CardDescription>Sign out on this browser. You can sign in again anytime.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button type="button" variant="outline" size="sm" onClick={() => void logout()}>
+            <LogOut className="mr-2 size-4" aria-hidden />
+            Sign out
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="pb-4">
         <Link href="/dashboard" className={buttonVariants({ variant: "outline", size: "sm" })}>

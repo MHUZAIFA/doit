@@ -3,57 +3,12 @@
  * productivity recommendation (what to work on next). Uses the Web Speech API for speech (system voice), not cloud TTS.
  */
 import { localDateInputValue } from "@/lib/date"
-
-/** Optional tuning (1 = default). */
-const WAKE_SPEECH_RATE = 1
-const WAKE_SPEECH_PITCH = 1
-
-const DEFAULT_WAKE_GREETING = "Welcome back sir!"
-
-/** Preference `wakeVoiceNameIncludes`: `""`, or `name|||lang` from the voice picker, or legacy substring. */
-function pickWakeVoice(stored: string): SpeechSynthesisVoice | null {
-  if (typeof window === "undefined" || !window.speechSynthesis) return null
-  const voices = window.speechSynthesis.getVoices()
-  if (voices.length === 0) return null
-  const needle = stored.trim()
-  if (!needle) {
-    return voices.find((v) => v.lang.toLowerCase().startsWith("en")) ?? voices[0] ?? null
-  }
-  const sep = needle.indexOf("|||")
-  if (sep !== -1) {
-    const name = needle.slice(0, sep)
-    const lang = needle.slice(sep + 3)
-    return voices.find((v) => v.name === name && v.lang === lang) ?? null
-  }
-  return (
-    voices.find((v) => v.name.toLowerCase().includes(needle.toLowerCase())) ??
-    voices.find((v) => v.lang.toLowerCase().startsWith("en")) ??
-    voices[0] ??
-    null
-  )
-}
-
-async function fetchBriefingPreferences(): Promise<{ voice: string; greeting: string }> {
-  try {
-    const res = await fetch("/api/auth/me", {
-      cache: "no-store",
-      credentials: "same-origin",
-    })
-    const data = (await res.json()) as {
-      user?: { preferences?: { wakeVoiceNameIncludes?: string; wakeGreeting?: string } }
-    }
-    const p = data.user?.preferences
-    return {
-      voice: typeof p?.wakeVoiceNameIncludes === "string" ? p.wakeVoiceNameIncludes : "",
-      greeting:
-        typeof p?.wakeGreeting === "string" && p.wakeGreeting.trim()
-          ? p.wakeGreeting.trim()
-          : DEFAULT_WAKE_GREETING,
-    }
-  } catch {
-    return { voice: "", greeting: DEFAULT_WAKE_GREETING }
-  }
-}
+import {
+  fetchWakeSpeechUserPrefs,
+  pickWakeVoice,
+  WAKE_SPEECH_PITCH,
+  WAKE_SPEECH_RATE,
+} from "@/lib/wake-speech-voice"
 
 type TaskRow = {
   title: string
@@ -214,7 +169,7 @@ async function runPostWakeBriefing(): Promise<void> {
   if (typeof window === "undefined") return
 
   try {
-    const prefs = await fetchBriefingPreferences()
+    const prefs = await fetchWakeSpeechUserPrefs()
     const wx = await weatherFragmentForGreeting()
     const greetingLine = wx ? `${prefs.greeting} ${wx}` : prefs.greeting
     await speak(greetingLine, prefs.voice)

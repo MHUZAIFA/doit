@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { LogOut, Pause, Play, Power } from "lucide-react"
+import { Pause, Play, Power } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { SLEEP_RETURN_TO_KEY } from "@/lib/constants"
@@ -28,12 +28,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return subscribeWakeMusicPlayback(() => setWakeMusic(getWakeMusicNavbarState()))
   }, [])
 
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" })
-    router.push("/login")
-    router.refresh()
-  }
-
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-40 bg-background">
@@ -48,25 +42,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-              aria-label="Sleep mode — double-clap or tap to wake"
-              title="Sleep mode"
-              onClick={async () => {
-                await primeWakeAudioOnUserGesture()
-                try {
-                  sessionStorage.setItem(SLEEP_RETURN_TO_KEY, pathname)
-                } catch {
-                  /* */
-                }
-                router.push("/sleep")
-              }}
-            >
-              <Power className="size-[1.125rem]" aria-hidden />
-            </Button>
+            <NotificationsPopover />
+            <ThemeToggle />
             {wakeMusic.visible ? (
               <Button
                 type="button"
@@ -87,14 +64,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
               </Button>
             ) : null}
-            <NotificationsPopover />
-            <ThemeToggle />
-            <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={logout}>
-              <LogOut className="mr-1 size-4" />
-              Sign out
-            </Button>
-            <Button variant="ghost" size="icon" className="sm:hidden" onClick={logout} aria-label="Sign out">
-              <LogOut className="size-4" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Sleep mode — double-clap or tap to wake"
+              title="Sleep mode"
+              onClick={async () => {
+                await primeWakeAudioOnUserGesture()
+                try {
+                  sessionStorage.setItem(SLEEP_RETURN_TO_KEY, pathname)
+                } catch {
+                  /* */
+                }
+                router.push("/sleep")
+              }}
+            >
+              <Power className="size-[1.125rem]" aria-hidden />
             </Button>
           </div>
         </div>
