@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-40 bg-background">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-8xl items-center gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <Link
               href="/dashboard"

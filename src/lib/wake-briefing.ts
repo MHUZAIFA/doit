@@ -1,6 +1,6 @@
 /**
- * After wake music’s ramp window, speaks current weather (browser location) then a short pause, then today’s task summary.
- * Uses the Web Speech API (no external “AI” TTS — the voice is the system synthesizer).
+ * After wake music’s ramp window: greeting (includes local temp when available) → pause → task summary →
+ * productivity recommendation (what to work on next). Uses the Web Speech API for speech (system voice), not cloud TTS.
  */
 import { localDateInputValue } from "@/lib/date"
 
@@ -187,26 +187,21 @@ async function coordsFromBrowser(): Promise<{ lat: number; lon: number } | null>
   })
 }
 
-async function weatherLine(): Promise<string> {
+/** Sentence fragment appended after the wake greeting when location + API succeed; otherwise greeting only. */
+async function weatherFragmentForGreeting(): Promise<string | null> {
   const coords = await coordsFromBrowser()
-  if (!coords) {
-    return "I couldn't get your location. Allow location access to hear weather for where you are."
-  }
+  if (!coords) return null
 
   const res = await fetch(
     `/api/weather/current?lat=${encodeURIComponent(String(coords.lat))}&lon=${encodeURIComponent(String(coords.lon))}`
   )
-  if (!res.ok) {
-    if (res.status === 503) {
-      return "Weather isn't available right now. The server may need a weather API key."
-    }
-    return "Weather couldn't be loaded."
-  }
+  if (!res.ok) return null
 
-  const w = (await res.json()) as { description: string; tempC: number }
+  const w = (await res.json()) as { description: string; tempC: number; feelsLikeC?: number }
   const temp = Math.round(w.tempC)
+  const feels = Math.round(w.feelsLikeC ?? w.tempC)
   const desc = w.description
-  return `Current weather near you: ${temp} degrees Celsius, ${desc}.`
+  return `It's ${temp} degrees Celsius, feels like ${feels}, ${desc}.`
 }
 
 async function tasksLine(): Promise<string> {
@@ -217,17 +212,33 @@ async function tasksLine(): Promise<string> {
   return buildTodayTasksSummary(tasks)
 }
 
+async function nextRecommendationLine(): Promise<string> {
+  const res = await fetch("/api/ai/wake-next-recommendation", {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+  })
+  if (!res.ok) {
+    return "I couldn't load a suggestion for what to do next."
+  }
+  const json = (await res.json()) as { recommendation?: string }
+  const line = typeof json.recommendation === "string" ? json.recommendation.trim() : ""
+  return line || "Pick an open task that supports your health, growth, relationships, or livelihood, and take one concrete step in the next twenty-five minutes."
+}
+
 async function runPostWakeBriefing(): Promise<void> {
   if (typeof window === "undefined") return
 
   try {
     const prefs = await fetchBriefingPreferences()
-    await speak(prefs.greeting, prefs.voice)
-    const weather = await weatherLine()
-    await speak(weather, prefs.voice)
+    const wx = await weatherFragmentForGreeting()
+    const greetingLine = wx ? `${prefs.greeting} ${wx}` : prefs.greeting
+    await speak(greetingLine, prefs.voice)
     await pauseMs(1000)
     const tasks = await tasksLine()
     await speak(tasks, prefs.voice)
+    const next = await nextRecommendationLine()
+    await speak(next, prefs.voice)
   } catch {
     /* */
   }

@@ -14,6 +14,7 @@ const patchSchema = z.object({
   /** `name|||lang` can be long on some systems */
   wakeVoiceNameIncludes: z.string().max(512).optional(),
   wakeGreeting: z.string().min(0).max(300).optional(),
+  wakeMusicMuted: z.boolean().optional(),
 })
 
 export async function PATCH(request: Request) {
@@ -43,6 +44,7 @@ export async function PATCH(request: Request) {
   if (p.wakeVoiceNameIncludes !== undefined)
     updates["preferences.wakeVoiceNameIncludes"] = p.wakeVoiceNameIncludes
   if (p.wakeGreeting !== undefined) updates["preferences.wakeGreeting"] = p.wakeGreeting
+  if (p.wakeMusicMuted !== undefined) updates["preferences.wakeMusicMuted"] = p.wakeMusicMuted
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No valid fields" }, { status: 400 })

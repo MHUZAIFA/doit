@@ -1,6 +1,8 @@
 export type WeatherSnapshot = {
   description: string
   tempC: number
+  /** Apparent temperature (°C) from OpenWeather “feels_like”. */
+  feelsLikeC: number
   code: number
 }
 
@@ -22,12 +24,15 @@ export async function fetchWeatherForCoords(
   if (!res.ok) return null
   const data = (await res.json()) as {
     weather?: Array<{ description?: string; id?: number }>
-    main?: { temp?: number }
+    main?: { temp?: number; feels_like?: number }
   }
   const w = data.weather?.[0]
+  const temp = data.main?.temp ?? 0
+  const feels = data.main?.feels_like ?? temp
   return {
     description: w?.description ?? "unknown",
-    tempC: data.main?.temp ?? 0,
+    tempC: temp,
+    feelsLikeC: feels,
     code: w?.id ?? 0,
   }
 }

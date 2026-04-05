@@ -26,6 +26,7 @@ type Me = {
       privacyMode: boolean
       wakeVoiceNameIncludes: string
       wakeGreeting: string
+      wakeMusicMuted: boolean
     }
   } | null
 }
@@ -88,7 +89,8 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight md:text-[1.65rem]">Settings</h1>
           <p className="mt-1 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
-            Appearance, privacy, and wake briefing voice for after sleep mode.
+            Appearance, privacy, and wake briefing voice — greeting with local weather when allowed,
+            tasks, and a productivity suggestion after sleep mode.
           </p>
         </div>
       </section>
@@ -163,6 +165,7 @@ export default function SettingsPage() {
         <WakeVoiceSettings
           wakeVoiceNameIncludes={me.preferences.wakeVoiceNameIncludes}
           wakeGreeting={me.preferences.wakeGreeting}
+          wakeMusicMuted={Boolean(me.preferences.wakeMusicMuted)}
           onSaved={load}
         />
       ) : (

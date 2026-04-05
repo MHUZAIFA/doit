@@ -5,6 +5,7 @@ import Link from "next/link"
 import { CalendarDays, ListTodo, MapPin, MessageSquare, Plus, Settings } from "lucide-react"
 import { toast } from "sonner"
 
+import { DashboardWeather } from "@/components/dashboard-weather"
 import { type TaskView } from "@/components/task-card"
 import { TaskList } from "@/components/task-list-row"
 import { ScheduleTimeline, type TimelineBlock } from "@/components/timeline"
@@ -165,7 +166,7 @@ export default function DashboardPage() {
     <div className="space-y-10">
       <section className="mb-0 mt-5">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 space-y-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               {todayLabel}
             </p>
@@ -175,6 +176,7 @@ export default function DashboardPage() {
             <p className="max-w-lg text-[15px] leading-relaxed text-muted-foreground">
               Your plan for today, open work, and a quick read on how things are trending.
             </p>
+            <DashboardWeather />
           </div>
           <Link
             href="/tasks/new"

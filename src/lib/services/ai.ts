@@ -283,7 +283,42 @@ export async function parseTaskFromNaturalLanguage(
   }
 }
 
-export async function summarizeSchedulingContext(prompt: string): Promise<string> {
+/** Short spoken line for wake briefing: what to work on next. */
+export async function wakeNextTaskRecommendation(userPrompt: string): Promise<string> {
+  const xaiKey = resolveXaiKey()
+  const groqKey = resolveGroqKey()
+  const openaiKey = process.env.OPENAI_API_KEY
+  if (!xaiKey && !groqKey && !openaiKey) {
+    throw new Error("No AI key")
+  }
+  const baseUrl = xaiKey ? "https://api.x.ai/v1" : groqKey ? GROQ_BASE : "https://api.openai.com/v1"
+  const key = (xaiKey ?? groqKey ?? openaiKey) as string
+  const model = xaiKey
+    ? (process.env.XAI_MODEL ?? DEFAULT_XAI_MODEL)
+    : groqKey
+      ? (process.env.GROQ_MODEL ?? DEFAULT_GROQ_MODEL)
+      : (process.env.OPENAI_MODEL ?? "gpt-4o-mini")
+  const raw = await callChatCompletions(baseUrl, key, model, [
+    {
+      role: "system",
+      content:
+        "You are a coach for the Done. app helping the user build a successful, balanced life—not just busywork. Each task has a category: health (wellbeing), education (growth and skills), work (career and livelihood), personal (relationships and private life), errand (logistics), other. Prefer recommending tasks that strengthen long-term success: health, learning, meaningful work, and relationships—unless another task has an urgent deadline or clearly unblocks critical work. Reply with ONE or TWO short sentences (max 60 words) for text-to-speech. Name the single best task to start next and tie the reason to life impact (wellbeing, growth, security, relationships) or urgency when deadlines demand it. Imperative tone (Start with…, Tackle… first…). Plain English only—no bullets, markdown, or lists.",
+    },
+    { role: "user", content: userPrompt },
+  ])
+  return raw.replace(/\s+/g, " ").trim().slice(0, 500)
+}
+
+const SYSTEM_SCHEDULE_SUMMARY_SHORT =
+  "You are the AI inside the Done. app (the product name includes the period). Reply with ONE or TWO short sentences only (max 45 words total). Plain sentences—no bullet lists, no markdown, no greeting. Name the main tradeoff or takeaway for these schedule options."
+
+const SYSTEM_CHAT =
+  "You are the AI assistant inside the Done. app (the product name includes the period). Be concise; reply in under 120 words with actionable scheduling advice."
+
+export async function summarizeSchedulingContext(
+  prompt: string,
+  options?: { brief?: boolean }
+): Promise<string> {
   const xaiKey = resolveXaiKey()
   const groqKey = resolveGroqKey()
   const openaiKey = process.env.OPENAI_API_KEY
@@ -302,15 +337,13 @@ export async function summarizeSchedulingContext(prompt: string): Promise<string
       : groqKey
         ? (process.env.GROQ_MODEL ?? DEFAULT_GROQ_MODEL)
         : (process.env.OPENAI_MODEL ?? "gpt-4o-mini")
+    const system = options?.brief ? SYSTEM_SCHEDULE_SUMMARY_SHORT : SYSTEM_CHAT
     const raw = await callChatCompletions(baseUrl, key, model, [
-      {
-        role: "system",
-        content:
-          "You are the AI assistant inside the Done. app (the product name includes the period). Be concise; reply in under 120 words with actionable scheduling advice.",
-      },
+      { role: "system", content: system },
       { role: "user", content: prompt },
     ])
-    return raw
+    const cleaned = raw.replace(/\s+/g, " ").trim()
+    return options?.brief ? cleaned.slice(0, 400) : cleaned
   } catch (e) {
     return e instanceof Error ? e.message : "AI unavailable"
   }

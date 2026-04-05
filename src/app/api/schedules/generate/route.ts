@@ -88,8 +88,13 @@ export async function POST(request: Request) {
   let aiSummary: string | null = null
   if (!user.preferences.privacyMode) {
     const taskTitles = tasks.slice(0, 12).map((t) => t.title).join(", ")
+    const wx =
+      weather != null
+        ? `${weather.description}, ${Math.round(weather.tempC)}°C (feels like ${Math.round(weather.feelsLikeC)}°C)`
+        : "n/a"
     aiSummary = await summarizeSchedulingContext(
-      `Today is ${date}. Tasks: ${taskTitles || "(none)"}. Weather: ${weather?.description ?? "n/a"}. Scheduling produced ${options.length} options. Summarize tradeoffs briefly.`
+      `Today is ${date}. Tasks: ${taskTitles || "(none)"}. Weather: ${wx}. Scheduling produced ${options.length} options.`,
+      { brief: true }
     )
   }
 

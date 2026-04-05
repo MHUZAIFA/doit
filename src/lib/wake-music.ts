@@ -34,6 +34,16 @@ let active: ActivePlayback | null = null
 /** Audio element primed during the Power-button click so playback works after clap wake. */
 let primedAudio: HTMLAudioElement | null = null
 
+async function fetchWakeMusicMuted(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/auth/me", { cache: "no-store", credentials: "same-origin" })
+    const data = (await res.json()) as { user?: { preferences?: { wakeMusicMuted?: boolean } } }
+    return Boolean(data.user?.preferences?.wakeMusicMuted)
+  } catch {
+    return false
+  }
+}
+
 function stopActive() {
   cancelScheduledPostWakeBriefing()
   if (!active) return
@@ -77,6 +87,9 @@ export async function primeWakeAudioOnUserGesture(): Promise<void> {
   stopActive()
   primedAudio = null
 
+  const muted = await fetchWakeMusicMuted()
+  if (muted) return
+
   try {
     const silent = new Audio(SILENT_WAV_DATA_URL)
     await silent.play()
@@ -119,6 +132,21 @@ export function playWakeMusic(): void {
   if (typeof window === "undefined") return
 
   stopActive()
+
+  void (async () => {
+    const muted = await fetchWakeMusicMuted()
+    if (muted) {
+      primedAudio = null
+      schedulePostWakeBriefing(WakeMusic.rampAfterMs)
+      return
+    }
+
+    playWakeMusicWithAudio()
+  })()
+}
+
+function playWakeMusicWithAudio(): void {
+  if (typeof window === "undefined") return
 
   const wasPrimed = primedAudio !== null
   const audio = primedAudio ?? new Audio(WakeMusic.src)
@@ -188,3 +216,4 @@ export function playWakeMusic(): void {
     }
   }
 }
+

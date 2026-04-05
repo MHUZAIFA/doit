@@ -5,6 +5,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -25,15 +26,19 @@ function voiceKey(name: string, lang: string) {
 export function WakeVoiceSettings({
   wakeVoiceNameIncludes,
   wakeGreeting,
+  wakeMusicMuted,
   onSaved,
 }: {
   wakeVoiceNameIncludes: string
   wakeGreeting: string
+  wakeMusicMuted: boolean
   onSaved?: () => void
 }) {
   const [allVoices, setAllVoices] = useState<SpeechSynthesisVoice[]>([])
   const [voiceValue, setVoiceValue] = useState(wakeVoiceNameIncludes)
   const [greeting, setGreeting] = useState(wakeGreeting || DEFAULT_GREETING)
+  const [musicMuted, setMusicMuted] = useState(wakeMusicMuted)
+  const [muteSaving, setMuteSaving] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -43,6 +48,31 @@ export function WakeVoiceSettings({
   useEffect(() => {
     setGreeting(wakeGreeting || DEFAULT_GREETING)
   }, [wakeGreeting])
+
+  useEffect(() => {
+    setMusicMuted(wakeMusicMuted)
+  }, [wakeMusicMuted])
+
+  async function toggleWakeMusicMuted(checked: boolean) {
+    setMuteSaving(true)
+    setMusicMuted(checked)
+    try {
+      const res = await fetch("/api/users/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ wakeMusicMuted: checked }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success(checked ? "Wake music muted" : "Wake music on")
+      onSaved?.()
+    } catch {
+      setMusicMuted(!checked)
+      toast.error("Could not update wake music")
+    } finally {
+      setMuteSaving(false)
+    }
+  }
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.speechSynthesis) return
@@ -154,12 +184,23 @@ export function WakeVoiceSettings({
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-medium">Wake briefing voice</CardTitle>
         <CardDescription>
-          After sleep mode, your browser speaks a greeting, then weather, then today&apos;s tasks.
-          The list shows English voices that usually sound more natural (neural/cloud, enhanced, or
-          common system voices). If none match your device, all English voices are shown.
+          After sleep mode, your browser speaks your greeting with local temperature when available,
+          then today&apos;s tasks, and a short productivity tip for what to do next. The list shows English voices that usually sound more
+          natural. If none match your device, all English voices are shown.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-start gap-3 rounded-[var(--radius-xs)] border border-border p-3 dark:border-white/10">
+          <Checkbox
+            id="wake-music-muted"
+            checked={musicMuted}
+            disabled={muteSaving}
+            onCheckedChange={(v) => void toggleWakeMusicMuted(v === true)}
+          />
+          <Label htmlFor="wake-music-muted" className="text-sm font-normal leading-snug text-muted-foreground">
+            Mute wake music — skip the song after sleep; the spoken briefing still plays.
+          </Label>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="wake-voice">Voice</Label>
           <Select

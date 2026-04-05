@@ -12,6 +12,8 @@ export type UserPreferences = {
   wakeVoiceNameIncludes: string
   /** Spoken first when the post-wake briefing runs. */
   wakeGreeting: string
+  /** When true, wake music after sleep is silent; voice briefing still plays. */
+  wakeMusicMuted: boolean
 }
 
 export type UserGamification = {
@@ -108,6 +110,7 @@ export function defaultPreferences(): UserPreferences {
     timezone: "UTC",
     wakeVoiceNameIncludes: "",
     wakeGreeting: "Welcome back sir!",
+    wakeMusicMuted: false,
   }
 }
 

@@ -16,7 +16,7 @@ export function SiteFooter() {
       className="fixed bottom-0 left-0 right-0 z-50 bg-background"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="mx-auto flex w-full px-10 flex-col justify-center gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto max-w-8xl flex w-full flex-col justify-center gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-left text-[12px] text-muted-foreground">
           © {year} Done. All rights reserved.
         </p>
