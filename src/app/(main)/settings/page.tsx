@@ -1,9 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, type ChangeEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, LogOut, Monitor, Moon, Sun } from "lucide-react"
+import { ArrowLeft, Bed, LogOut, Monitor, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
@@ -11,6 +11,7 @@ import { WakeVoiceSettings } from "@/components/wake-voice-settings"
 import { persistUserTheme } from "@/components/theme-toggle"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import {
@@ -28,14 +29,26 @@ type Me = {
       wakeVoiceNameIncludes: string
       wakeGreeting: string
       wakeMusicMuted: boolean
+      sleepHoursEnabled: boolean
+      sleepHoursStart: string
+      sleepHoursEnd: string
     }
   } | null
+}
+
+function hmFromTimeInput(value: string) {
+  const m = value.match(/^(\d{2}):(\d{2})/)
+  return m ? `${m[1]}:${m[2]}` : "09:00"
 }
 
 export default function SettingsPage() {
   const router = useRouter()
   const [me, setMe] = useState<Me["user"]>(null)
   const [privacyLoading, setPrivacyLoading] = useState(false)
+  const [sleepLoading, setSleepLoading] = useState(false)
+  const [sleepTimesSaving, setSleepTimesSaving] = useState(false)
+  const [sleepStart, setSleepStart] = useState("23:00")
+  const [sleepEnd, setSleepEnd] = useState("07:00")
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -52,6 +65,53 @@ export default function SettingsPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!me?.preferences) return
+    setSleepStart(me.preferences.sleepHoursStart ?? "23:00")
+    setSleepEnd(me.preferences.sleepHoursEnd ?? "07:00")
+  }, [me?.preferences?.sleepHoursStart, me?.preferences?.sleepHoursEnd])
+
+  async function toggleSleepHours(checked: boolean) {
+    setSleepLoading(true)
+    try {
+      const res = await fetch("/api/users/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ sleepHoursEnabled: checked }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success(checked ? "Sleep hours respected when scheduling" : "Sleep hours off")
+      await load()
+    } catch {
+      toast.error("Could not update sleep hours")
+    } finally {
+      setSleepLoading(false)
+    }
+  }
+
+  async function saveSleepTimes() {
+    setSleepTimesSaving(true)
+    try {
+      const res = await fetch("/api/users/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          sleepHoursStart: hmFromTimeInput(sleepStart),
+          sleepHoursEnd: hmFromTimeInput(sleepEnd),
+        }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success("Sleep window saved")
+      await load()
+    } catch {
+      toast.error("Could not save sleep window")
+    } finally {
+      setSleepTimesSaving(false)
+    }
+  }
 
   async function togglePrivacy(checked: boolean) {
     setPrivacyLoading(true)
@@ -166,6 +226,73 @@ export default function SettingsPage() {
           <Label htmlFor="privacy" className="text-sm font-normal leading-snug text-muted-foreground">
             Privacy mode — skip external AI; encrypt titles when an encryption key is set.
           </Label>
+        </CardContent>
+      </Card>
+
+      <Card
+        size="sm"
+        className="rounded-[var(--radius-xs)] border-2 border-border ring-0 dark:border-white/10"
+      >
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base font-medium">
+            <Bed className="size-4 opacity-70" aria-hidden />
+            Sleep hours
+          </CardTitle>
+          <CardDescription>
+            When enabled, generated schedules skip this window (bedtime later than wake time is OK — e.g. 23:00 to
+            07:00 overnight).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex flex-wrap items-start gap-3">
+            <Checkbox
+              id="sleep-hours"
+              checked={Boolean(me?.preferences.sleepHoursEnabled)}
+              disabled={sleepLoading || !me}
+              onCheckedChange={(v) => toggleSleepHours(v === true)}
+            />
+            <Label htmlFor="sleep-hours" className="text-sm font-normal leading-snug text-muted-foreground">
+              Block tasks during my sleep window
+            </Label>
+          </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="space-y-1.5">
+              <Label htmlFor="sleep-start" className="text-xs text-muted-foreground">
+                Sleep from
+              </Label>
+              <Input
+                id="sleep-start"
+                type="time"
+                value={sleepStart.length >= 5 ? sleepStart.slice(0, 5) : sleepStart}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setSleepStart(e.target.value)}
+                disabled={!me}
+                className="h-10 w-full sm:w-auto"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sleep-end" className="text-xs text-muted-foreground">
+                Wake at
+              </Label>
+              <Input
+                id="sleep-end"
+                type="time"
+                value={sleepEnd.length >= 5 ? sleepEnd.slice(0, 5) : sleepEnd}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setSleepEnd(e.target.value)}
+                disabled={!me}
+                className="h-10 w-full sm:w-auto"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10"
+              disabled={!me || sleepTimesSaving}
+              onClick={() => void saveSleepTimes()}
+            >
+              Save sleep window
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

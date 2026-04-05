@@ -6,6 +6,10 @@ export type UserPreferences = {
   theme: ThemePreference
   businessHoursStart: string
   businessHoursEnd: string
+  /** When true, the planner leaves {@link sleepHoursStart}–{@link sleepHoursEnd} free (supports overnight windows). */
+  sleepHoursEnabled: boolean
+  sleepHoursStart: string
+  sleepHoursEnd: string
   privacyMode: boolean
   timezone: string
   /** Substring or full name from `speechSynthesis.getVoices()`; empty = browser default English. */
@@ -108,6 +112,9 @@ export function defaultPreferences(): UserPreferences {
     theme: "system",
     businessHoursStart: "09:00",
     businessHoursEnd: "17:00",
+    sleepHoursEnabled: false,
+    sleepHoursStart: "23:00",
+    sleepHoursEnd: "07:00",
     privacyMode: false,
     timezone: "UTC",
     wakeVoiceNameIncludes: "",

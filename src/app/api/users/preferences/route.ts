@@ -9,6 +9,9 @@ const patchSchema = z.object({
   theme: z.enum(["light", "dark", "system"]).optional(),
   businessHoursStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   businessHoursEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  sleepHoursEnabled: z.boolean().optional(),
+  sleepHoursStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  sleepHoursEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   privacyMode: z.boolean().optional(),
   timezone: z.string().min(1).max(64).optional(),
   /** `name|||lang` can be long on some systems */
@@ -39,6 +42,10 @@ export async function PATCH(request: Request) {
   if (p.businessHoursStart !== undefined)
     updates["preferences.businessHoursStart"] = p.businessHoursStart
   if (p.businessHoursEnd !== undefined) updates["preferences.businessHoursEnd"] = p.businessHoursEnd
+  if (p.sleepHoursEnabled !== undefined)
+    updates["preferences.sleepHoursEnabled"] = p.sleepHoursEnabled
+  if (p.sleepHoursStart !== undefined) updates["preferences.sleepHoursStart"] = p.sleepHoursStart
+  if (p.sleepHoursEnd !== undefined) updates["preferences.sleepHoursEnd"] = p.sleepHoursEnd
   if (p.privacyMode !== undefined) updates["preferences.privacyMode"] = p.privacyMode
   if (p.timezone !== undefined) updates["preferences.timezone"] = p.timezone
   if (p.wakeVoiceNameIncludes !== undefined)

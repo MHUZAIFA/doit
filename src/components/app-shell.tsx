@@ -21,6 +21,8 @@ import { siteFooterScrollPadding } from "@/components/site-footer"
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const mainMaxWidth =
+    pathname === "/schedule" || pathname.startsWith("/schedule/") ? "max-w-8xl" : "max-w-6xl"
   const [wakeMusic, setWakeMusic] = useState(getWakeMusicNavbarState)
 
   useEffect(() => {
@@ -88,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main
-        className={`mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 ${siteFooterScrollPadding}`}
+        className={`mx-auto flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 ${mainMaxWidth} ${siteFooterScrollPadding}`}
       >
         {children}
       </main>

@@ -3,7 +3,7 @@ import { z } from "zod"
 import { requireSessionUser } from "@/lib/api/auth-utils"
 import { getDb } from "@/lib/db"
 import { COLLECTIONS } from "@/lib/constants"
-import type { ScheduleDocument, TaskDocument, UserDocument } from "@/lib/models"
+import { defaultPreferences, type ScheduleDocument, type TaskDocument, type UserDocument } from "@/lib/models"
 import { buildScheduleOptions } from "@/lib/services/scheduling"
 import { buildTaskTravelMatrix } from "@/lib/travel-matrix"
 import { fetchWeatherForCoords } from "@/lib/services/weather"
@@ -56,12 +56,16 @@ export async function POST(request: Request) {
     )
   }
 
+  const pref = { ...defaultPreferences(), ...user.preferences }
   const { options, alerts } = buildScheduleOptions(
     tasks,
     date,
     {
-      businessHoursStart: user.preferences.businessHoursStart,
-      businessHoursEnd: user.preferences.businessHoursEnd,
+      businessHoursStart: pref.businessHoursStart,
+      businessHoursEnd: pref.businessHoursEnd,
+      sleepHoursEnabled: pref.sleepHoursEnabled,
+      sleepHoursStart: pref.sleepHoursStart,
+      sleepHoursEnd: pref.sleepHoursEnd,
     },
     travelMatrix,
     weather

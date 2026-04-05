@@ -101,7 +101,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 pb-8 pt-2">
+    <div className="w-full space-y-8 pb-8 pt-2">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
         <div className="min-w-0 space-y-1">
           <Link
@@ -156,7 +156,9 @@ export default function SchedulePage() {
       ) : null}
 
       {aiSummary ? (
-        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{aiSummary}</p>
+        <p className="max-w-4xl text-pretty text-sm leading-relaxed text-muted-foreground">
+          {aiSummary}
+        </p>
       ) : null}
 
       <div className={cn((fetching || generating) && options.length === 0 && "min-h-16")}>
