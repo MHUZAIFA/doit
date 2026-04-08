@@ -8,10 +8,13 @@ import { toast } from "sonner"
 import { type TaskView } from "@/components/task-card"
 import { TaskList } from "@/components/task-list-row"
 import { buttonVariants } from "@/components/ui/button"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { taskMatchesCategoryTab, TASK_CATEGORY_TABS } from "@/lib/task-badges"
 import { cn } from "@/lib/utils"
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskView[]>([])
+  const [categoryTab, setCategoryTab] = useState<string>("all")
 
   const load = useCallback(async () => {
     const r = await fetch("/api/tasks")
@@ -65,15 +68,16 @@ export default function TasksPage() {
     const active: TaskView[] = []
     const done: TaskView[] = []
     for (const t of tasks) {
+      if (!taskMatchesCategoryTab(t.category, categoryTab)) continue
       if (t.status === "completed") done.push(t)
       else active.push(t)
     }
     return { activeTasks: active, completedTasks: done }
-  }, [tasks])
+  }, [tasks, categoryTab])
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between align-center">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <Link
             href="/dashboard"
@@ -86,7 +90,7 @@ export default function TasksPage() {
             Dashboard
           </Link>
           <div className="flex flex-wrap items-baseline gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight md:text-[1.65rem]">All tasks</h1>
+            <h1 className="text-2xl font-semibold tracking-tight md:text-[1.65rem]">Tasks</h1>
             <span className="text-sm tabular-nums text-muted-foreground">
               {activeTasks.length} open
               {completedTasks.length > 0 ? ` · ${completedTasks.length} done` : ""}
@@ -115,29 +119,52 @@ export default function TasksPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-8">
-          {activeTasks.length > 0 ? (
-            <TaskList
-              tasks={activeTasks}
-              onComplete={completeTask}
-              onReopen={reopenTask}
-              onDelete={deleteTask}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">No open tasks — nice work.</p>
-          )}
+        <div className="space-y-6">
+          <Tabs
+            value={categoryTab}
+            onValueChange={(v) => {
+              if (v != null) setCategoryTab(String(v))
+            }}
+            className="w-full"
+            aria-label="Filter by category"
+          >
+            <TabsList variant="line" className="h-auto min-h-9 flex-wrap p-0">
+              {TASK_CATEGORY_TABS.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value} className="shrink-0 px-3 py-2 text-[13px]">
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
 
-          {completedTasks.length > 0 ? (
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-muted-foreground">Completed</h2>
-              <TaskList
-                tasks={completedTasks}
-                onComplete={completeTask}
-                onReopen={reopenTask}
-                onDelete={deleteTask}
-              />
+          {activeTasks.length === 0 && completedTasks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No tasks in this category.</p>
+          ) : (
+            <div className="space-y-8">
+              {activeTasks.length > 0 ? (
+                <TaskList
+                  tasks={activeTasks}
+                  onComplete={completeTask}
+                  onReopen={reopenTask}
+                  onDelete={deleteTask}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">No open tasks — nice work.</p>
+              )}
+
+              {completedTasks.length > 0 ? (
+                <div className="space-y-3">
+                  <h2 className="text-sm font-medium text-muted-foreground">Completed</h2>
+                  <TaskList
+                    tasks={completedTasks}
+                    onComplete={completeTask}
+                    onReopen={reopenTask}
+                    onDelete={deleteTask}
+                  />
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          )}
         </div>
       )}
     </div>

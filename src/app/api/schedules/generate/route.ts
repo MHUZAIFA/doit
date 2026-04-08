@@ -12,6 +12,12 @@ import { scheduleTaskIdToString } from "@/lib/schedule-task-id"
 
 const bodySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  /** When true and `clientCalendarDate` matches `date`, schedule from now + 15 minutes (client’s “today”). */
+  fromNow: z.boolean().optional(),
+  /** Browser local calendar date when the user clicked generate; must match `date` to apply `fromNow`. */
+  clientCalendarDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /** Browser IANA zone for this request (e.g. America/Toronto); overrides stored prefs for day boundaries. */
+  clientTimeZone: z.string().min(1).max(64).optional(),
 })
 
 export async function POST(request: Request) {
@@ -30,7 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { date } = parsed.data
+  const { date, fromNow, clientCalendarDate, clientTimeZone } = parsed.data
   const db = await getDb()
 
   const user = await db.collection<UserDocument>(COLLECTIONS.users).findOne({
@@ -57,6 +63,13 @@ export async function POST(request: Request) {
   }
 
   const pref = { ...defaultPreferences(), ...user.preferences }
+  const tz =
+    clientTimeZone?.trim() || pref.timezone?.trim() || "UTC"
+  let anchorStartMs: number | null = null
+  if (fromNow === true && clientCalendarDate != null && clientCalendarDate === date) {
+    anchorStartMs = Date.now() + 15 * 60 * 1000
+  }
+
   const { options, alerts } = buildScheduleOptions(
     tasks,
     date,
@@ -66,9 +79,11 @@ export async function POST(request: Request) {
       sleepHoursEnabled: pref.sleepHoursEnabled,
       sleepHoursStart: pref.sleepHoursStart,
       sleepHoursEnd: pref.sleepHoursEnd,
+      timeZone: tz,
     },
     travelMatrix,
-    weather
+    weather,
+    { anchorStartMs }
   )
 
   let aiSummary: string | null = null

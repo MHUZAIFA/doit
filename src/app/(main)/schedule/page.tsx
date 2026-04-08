@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { ScheduleOptionCards, type ScheduleOptionView } from "@/components/schedule-option-cards"
+import { ScheduleUpNext } from "@/components/schedule-up-next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -70,11 +71,21 @@ export default function SchedulePage() {
   async function generate() {
     setGenerating(true)
     try {
+      const cal = localDateInputValue()
+      const clientTimeZone =
+        typeof Intl !== "undefined"
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : undefined
       const res = await fetch("/api/schedules/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ date }),
+        body: JSON.stringify({
+          date,
+          fromNow: date === cal,
+          clientCalendarDate: cal,
+          ...(clientTimeZone ? { clientTimeZone } : {}),
+        }),
       })
       const data = (await res.json()) as ScheduleApi & { error?: unknown }
       if (!res.ok) {
@@ -138,7 +149,7 @@ export default function SchedulePage() {
                 Generating
               </>
             ) : (
-              "Generate"
+              "Generate plan"
             )}
           </Button>
         </div>
@@ -154,6 +165,8 @@ export default function SchedulePage() {
           ))}
         </ul>
       ) : null}
+
+      <ScheduleUpNext primaryOption={options[0]} taskTitles={titles} scheduleDate={date} />
 
       {aiSummary ? (
         <p className="max-w-4xl text-pretty text-sm leading-relaxed text-muted-foreground">

@@ -1,3 +1,5 @@
+import { TZDate } from "@date-fns/tz"
+
 import type { TaskDocument } from "@/lib/models"
 import type { ScheduleOption } from "@/lib/models"
 import { weatherBlocksOutdoorTasks, type WeatherSnapshot } from "@/lib/services/weather"
@@ -18,13 +20,37 @@ function parseHm(hm: string): number {
   return (h || 0) * 60 + (m || 0)
 }
 
-function dayBounds(dateStr: string, startHm: string, endHm: string): { start: Date; end: Date } {
+function parseYmd(dateStr: string): { y: number; m0: number; d: number } {
+  const [ys, ms, ds] = dateStr.split("-")
+  const y = parseInt(ys ?? "0", 10)
+  const mo = parseInt(ms ?? "1", 10)
+  const d = parseInt(ds ?? "1", 10)
+  return { y, m0: mo - 1, d }
+}
+
+/** Business window on `dateStr` interpreted in `timeZone` (IANA). */
+function dayBounds(
+  dateStr: string,
+  startHm: string,
+  endHm: string,
+  timeZone: string
+): { start: Date; end: Date } {
+  const { y, m0, d } = parseYmd(dateStr)
   const startMin = parseHm(startHm)
   const endMin = parseHm(endHm)
-  const day = new Date(`${dateStr}T00:00:00.000Z`)
-  const start = new Date(day.getTime() + startMin * 60 * 1000)
-  const end = new Date(day.getTime() + endMin * 60 * 1000)
-  return { start, end }
+  const sh = Math.floor(startMin / 60)
+  const sm = startMin % 60
+  const eh = Math.floor(endMin / 60)
+  const em = endMin % 60
+
+  const start = new TZDate(y, m0, d, sh, sm, 0, 0, timeZone)
+  const end = new TZDate(y, m0, d, eh, em, 0, 0, timeZone)
+  return { start: new Date(start.getTime()), end: new Date(end.getTime()) }
+}
+
+function dayMidnightUtcMs(dateStr: string, timeZone: string): number {
+  const { y, m0, d } = parseYmd(dateStr)
+  return new TZDate(y, m0, d, 0, 0, 0, 0, timeZone).getTime()
 }
 
 type MsWindow = { start: number; end: number }
@@ -62,9 +88,10 @@ function subtractBlock(windows: MsWindow[], block: MsWindow): MsWindow[] {
   return out.filter((x) => x.end > x.start)
 }
 
-/** Business window minus sleep, same day as {@link dateStr} (matches {@link dayBounds}). */
+/** Business window minus sleep, same calendar day as {@link dateStr} in {@link timeZone}. */
 function buildAwakeWindows(
   dateStr: string,
+  timeZone: string,
   dayStartMs: number,
   dayEndMs: number,
   sleepEnabled: boolean,
@@ -75,7 +102,7 @@ function buildAwakeWindows(
   if (!sleepEnabled) {
     return windows
   }
-  const T0 = new Date(`${dateStr}T00:00:00.000Z`).getTime()
+  const T0 = dayMidnightUtcMs(dateStr, timeZone)
   for (const block of sleepBlocksForDay(T0, sleepStartHm, sleepEndHm)) {
     windows = subtractBlock(windows, block)
   }
@@ -128,7 +155,7 @@ function mapTasks(docs: TaskDocument[]): InternalTask[] {
 function tryPack(
   ordered: InternalTask[],
   awakeWindows: MsWindow[],
-  dayStartMs: number,
+  packStartMs: number,
   dayEndMs: number,
   travelMinutes: (a: string, b: string | null) => number,
   weather: WeatherSnapshot | null
@@ -139,7 +166,7 @@ function tryPack(
 
   const alerts: string[] = []
   const slots: ScheduleOption["tasks"] = []
-  let cursor = dayStartMs
+  let cursor = packStartMs
   let prevId: string | null = null
   let score = 100
 
@@ -212,6 +239,13 @@ export type SchedulePlannerPreferences = {
   sleepHoursEnabled: boolean
   sleepHoursStart: string
   sleepHoursEnd: string
+  /** IANA zone for interpreting `dateStr` and business/sleep clock times (e.g. America/Toronto). */
+  timeZone: string
+}
+
+export type BuildSchedulePlannerOptions = {
+  /** When set (e.g. now + 15m for “today”), packing starts no earlier than this time. */
+  anchorStartMs: number | null
 }
 
 export function buildScheduleOptions(
@@ -219,25 +253,43 @@ export function buildScheduleOptions(
   dateStr: string,
   prefs: SchedulePlannerPreferences,
   travelMatrix: Map<string, Map<string, number>> | null,
-  weather: WeatherSnapshot | null
+  weather: WeatherSnapshot | null,
+  plannerOpts?: BuildSchedulePlannerOptions
 ): { options: ScheduleOption[]; alerts: string[] } {
+  const tz = prefs.timeZone?.trim() || "UTC"
   const internal = mapTasks(tasks)
   const { start: dayStart, end: dayEnd } = dayBounds(
     dateStr,
     prefs.businessHoursStart,
-    prefs.businessHoursEnd
+    prefs.businessHoursEnd,
+    tz
   )
   const dayStartMs = dayStart.getTime()
   const dayEndMs = dayEnd.getTime()
 
   const awakeWindows = buildAwakeWindows(
     dateStr,
+    tz,
     dayStartMs,
     dayEndMs,
     prefs.sleepHoursEnabled,
     prefs.sleepHoursStart,
     prefs.sleepHoursEnd
   )
+
+  const anchorStartMs = plannerOpts?.anchorStartMs ?? null
+  let packStartMs = dayStartMs
+  if (anchorStartMs != null) {
+    if (anchorStartMs >= dayEndMs) {
+      return {
+        options: [],
+        alerts: [
+          "It’s already past the end of your business hours for this day — pick tomorrow or extend business hours in Settings.",
+        ],
+      }
+    }
+    packStartMs = Math.max(dayStartMs, anchorStartMs)
+  }
 
   const globalAlerts: string[] = []
   if (internal.length === 0) {
@@ -272,7 +324,7 @@ export function buildScheduleOptions(
 
   for (const key of variants) {
     const ordered = [...internal].sort(sortFns[key])
-    const packed = tryPack(ordered, awakeWindows, dayStartMs, dayEndMs, travelMinutes, weather)
+    const packed = tryPack(ordered, awakeWindows, packStartMs, dayEndMs, travelMinutes, weather)
     if (packed) {
       options.push({
         optionId: `opt-${key}`,
@@ -288,6 +340,10 @@ export function buildScheduleOptions(
       prefs.sleepHoursEnabled
         ? "Tasks cannot fit around sleep hours and travel buffers. Shorten tasks, extend business hours, or adjust sleep in Settings."
         : "Tasks cannot fit within business hours with travel buffers. Extend hours, shorten tasks, or move deadlines."
+    )
+  } else if (anchorStartMs != null) {
+    globalAlerts.push(
+      "Plan starts after a 15-minute buffer — first tasks below are what you can tackle soonest."
     )
   }
 

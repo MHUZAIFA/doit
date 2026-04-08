@@ -12,6 +12,29 @@ export function priorityBadgeVariant(priority: string): PriorityBadgeVariant {
   return PRIORITY_VARIANT[priority] ?? "secondary"
 }
 
+/** Tab order for the tasks page (value → filter). "Other" includes `other` and any custom category. */
+export const TASK_CATEGORY_TABS = [
+  { value: "all", label: "All" },
+  { value: "work", label: "Work" },
+  { value: "personal", label: "Personal" },
+  { value: "health", label: "Health" },
+  { value: "errand", label: "Errand" },
+  { value: "education", label: "Education" },
+  { value: "other", label: "Other" },
+] as const
+
+const PRIMARY_CATEGORY = new Set(["work", "personal", "health", "errand", "education"])
+
+/** Whether a task belongs under the given category tab. */
+export function taskMatchesCategoryTab(taskCategory: string, tab: string): boolean {
+  if (tab === "all") return true
+  const c = taskCategory.trim().toLowerCase()
+  if (tab === "other") {
+    return c === "other" || !PRIMARY_CATEGORY.has(c)
+  }
+  return c === tab
+}
+
 /** Tinted outline-style badges per category (work, personal, health, errand, education, other). */
 const CATEGORY_CLASS: Record<string, string> = {
   work: "border-violet-500/45 bg-violet-500/10 text-violet-800 dark:border-violet-400/40 dark:bg-violet-400/12 dark:text-violet-100",
